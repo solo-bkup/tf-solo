@@ -13,8 +13,8 @@
 #include "characterset.h"
 #include "isaverestore.h"
 #include "gamerules.h"
-#include "vscript_client_nut.h"
-#include "gameui/gameui_interface.h"
+//#include "vscript_client_nut.h"
+//#include "gameui/gameui_interface.h"
 
 #ifdef PANORAMA_ENABLE
 #include "panorama/panorama.h"
@@ -183,10 +183,10 @@ bool VScriptClientInit()
 
 				if ( scriptLanguage == SL_SQUIRREL )
 				{
-					g_pScriptVM->Run( g_Script_vscript_client );
+					//g_pScriptVM->Run( g_Script_vscript_client );
 				}
 
-				VScriptRunScript( "mapspawn", false );
+				VScriptRunScript( "gamespawn", false );
 
 				VMPROF_SHOW( pszScriptLanguage, "virtual machine startup" );
 
@@ -223,15 +223,21 @@ class CVScriptGameSystem : public CAutoGameSystemPerFrame
 {
 public:
 	// Inherited from IAutoServerSystem
-	virtual void LevelInitPreEntity( void )
+	virtual bool Init( void )
 	{
 		// <sergiy> Note: we may need script VM garbage collection at this point in the future. Currently, VM does not persist 
 		//          across level boundaries. GC is not necessary because our scripts are supposed to never create circular references
 		//          and everything else is handled with ref counting. For the case of bugs creating circular references, the plan is to add
 		//          diagnostics that detects such loops and warns the developer.
 
-		m_bAllowEntityCreationInScripts = true;
+		m_bAllowEntityCreationInScripts = false;
 		VScriptClientInit();
+		return true;
+	}
+
+	virtual void LevelInitPreEntity(void)
+	{
+		m_bAllowEntityCreationInScripts = true;
 	}
 
 	virtual void LevelInitPostEntity( void )
@@ -241,7 +247,8 @@ public:
 
 	virtual void LevelShutdownPostEntity( void )
 	{
-		VScriptClientTerm();
+		//VScriptClientTerm();
+		m_bAllowEntityCreationInScripts = false;
 	}
 
 	virtual void FrameUpdatePostEntityThink() 
@@ -263,7 +270,7 @@ bool IsEntityCreationAllowedInScripts( void )
 //
 // Slart: These were Portal 2 only, now they're not
 //
-
+/*
 bool __MsgFunc_SetMixLayerTriggerFactor(const CCSUsrMsg_SetMixLayerTriggerFactor &msg)
 {
 	int iLayerID = engine->GetMixLayerIndex(msg.layer().c_str());
@@ -299,7 +306,7 @@ class CSetMixLayerTriggerHelper : public CAutoGameSystem
 };
 
 static CSetMixLayerTriggerHelper g_SetMixLayerTriggerHelper;
-
+*/
 #ifdef PANORAMA_ENABLE
 
 bool __MsgFunc_PanoramaDispatchEvent( const CCSUsrMsg_PanoramaDispatchEvent &msg )
