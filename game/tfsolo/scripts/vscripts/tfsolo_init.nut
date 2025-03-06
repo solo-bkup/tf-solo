@@ -1,5 +1,6 @@
 printl("[TFSOLO] Init")
-::TFSOLO <- 1
+::TFSOLO <- {}
+::TFMOD <- 1
 
 local TFSOLO_EventTag = UniqueString()
 getroottable()[TFSOLO_EventTag] <- {

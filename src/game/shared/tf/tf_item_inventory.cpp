@@ -30,6 +30,7 @@
 #include "materialsystem/itexture.h"
 
 #include "tf_gc_client.h"
+#include "vscript_client.h"
 
 #else
 #include "tf_player.h"
@@ -55,6 +56,7 @@ ConVar tf_disable_base_econ_items("tf_disable_base_econ_items", "0", FCVAR_REPLI
 ConVar tf_disable_holiday_restrictions("tf_disable_holiday_restrictions", "1", FCVAR_REPLICATED, "Disable holiday restrictions on items.");
 
 #ifdef CLIENT_DLL
+extern CVScriptGameSystem g_VScriptGameSystem;
 //-----------------------------------------------------------------------------
 CEconNotification_HasNewItems::CEconNotification_HasNewItems() : CEconNotification()
 {
@@ -214,16 +216,19 @@ CTFInventoryManager *TFInventoryManager( void )
 // Purpose: 
 //-----------------------------------------------------------------------------
 CTFInventoryManager::CTFInventoryManager( void )
-
 {
+#if CLIENT_DLL
+	InitSaveData();
+#endif
 }
 
 CTFInventoryManager::~CTFInventoryManager( void )
 {
 	m_pBaseLoadoutItems.PurgeAndDeleteElements();
 	m_pSoloLoadoutItems.PurgeAndDeleteElements();
+#if CLIENT_DLL
 	m_SoloSaveData->deleteThis();
-	m_SoloSaveConfigData->deleteThis();
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -233,8 +238,9 @@ void CTFInventoryManager::PostInit( void )
 {
 	BaseClass::PostInit();
 	GenerateBaseItems();
-	InitSaveData();
+#if CLIENT_DLL
 	LoadSaveData();
+#endif
 	ListenForGameEvent("solo_add_credits");
 	ListenForGameEvent("solo_save_data");
 	ListenForGameEvent("solo_unlock_item");
@@ -2395,46 +2401,22 @@ bool CTFPlayerInventory::EquipLocalPreset(equipped_class_t unClass, equipped_pre
 }
 #endif
 
+#ifdef CLIENT_DLL
 #define TFSOLO_SAVE_PATH "cfg/solo/"
-#define TFSOLO_SAVE_CONFIG "cfg/solo/save_config.txt"
 
 void CTFInventoryManager::InitSaveData()
 {
-	if (!m_SoloSaveConfigData)
-	{
-		m_SoloSaveConfigData = new KeyValues("solo_config_data");
-		if (!m_SoloSaveConfigData->LoadFromFile(g_pFullFileSystem, TFSOLO_SAVE_CONFIG, "GAME"))
-		{
-			Msg("Unable to parse solo config data into keyvalues.\n");
-			return;
-		}
-	}
 	if (m_SoloSaveData)
 	{
 		m_SoloSaveData->deleteThis();
 	}
 	m_SoloSaveData = new KeyValues("solo_data");
-
-	m_SoloSaveData->SetUint64("Credits", m_SoloSaveConfigData->GetUint64("Credits"));
-	auto itemsKey = m_SoloSaveConfigData->FindKey("UnlockedItems")->MakeCopy();
-	m_SoloSaveData->AddSubKey(itemsKey);
-	auto armoryKey = m_SoloSaveConfigData->FindKey("Armory")->MakeCopy();
-	m_SoloSaveData->AddSubKey(armoryKey);
-	auto botpresetsKey = m_SoloSaveConfigData->FindKey("BotPresets")->MakeCopy();
-	m_SoloSaveData->AddSubKey(botpresetsKey);
-	auto campaignsKey = m_SoloSaveConfigData->FindKey("Campaigns")->MakeCopy();
-	m_SoloSaveData->AddSubKey(campaignsKey);
-	auto genericKey = m_SoloSaveConfigData->FindKey("Generic")->MakeCopy();
-	m_SoloSaveData->AddSubKey(genericKey);
 }
 
-#ifdef CLIENT_DLL
 void CTFInventoryManager::WriteSaveData()
 {
 	if (!m_SoloSaveData)
-	{
 		return;
-	}
 
 	CSteamID steamID = steamapicontext->SteamUser()->GetSteamID();
 
@@ -2443,7 +2425,6 @@ void CTFInventoryManager::WriteSaveData()
 	path.Append(CFmtStr("save_%d.txt", steamID.GetAccountID()));
 	m_SoloSaveData->SaveToFile(g_pFullFileSystem, path, "GAME");
 }
-#endif
 
 void CTFInventoryManager::LoadSaveData()
 {
@@ -2452,18 +2433,20 @@ void CTFInventoryManager::LoadSaveData()
 	CUtlString path;
 	path.Append(TFSOLO_SAVE_PATH);
 	path.Append(CFmtStr("save_%d.txt", steamID.GetAccountID()));
-	if (m_SoloSaveData)
+	
+	KeyValues* save = new KeyValues("solo_data");
+	if (!save->LoadFromFile(g_pFullFileSystem, path, "GAME"))
 	{
-		m_SoloSaveData->deleteThis();
-	}
-	m_SoloSaveData = new KeyValues("solo_data");
-	if (!m_SoloSaveData->LoadFromFile(g_pFullFileSystem, path, "GAME"))
-	{
-		InitSaveData();
-#if CLIENT_DLL
 		Msg("Unable to parse solo save data into keyvalues.\n");
 		engine->ClientCmd_Unrestricted("clear_loadout\n");
-#endif
+	}
+	else
+	{
+		if (m_SoloSaveData)
+		{
+			m_SoloSaveData->deleteThis();
+		}
+		m_SoloSaveData = save;
 	}
 
 	auto itemsKey = m_SoloSaveData->FindKey("UnlockedItems",true);
@@ -2476,15 +2459,22 @@ void CTFInventoryManager::LoadSaveData()
 		}
 	}
 
-#if CLIENT_DLL
 	CTFPlayerInventory* pInventory = TFInventoryManager()->GetInventoryForPlayer(steamID);
 	if (!pInventory)
 		return;
 	pInventory->LoadLocalLoadout();
-#endif
 }
 
-#ifdef CLIENT_DLL
+void CTFInventoryManager::ResetSaveData()
+{
+	InitSaveData();
+	GenerateBaseItems();
+	g_VScriptGameSystem.Reload();
+	WriteSaveData();
+	LoadSaveData();
+	engine->ClientCmd_Unrestricted("clear_loadout\n");
+}
+
 uint64_t CTFInventoryManager::GetCredits()
 {
 	return m_SoloSaveData->GetUint64("Credits");
@@ -2512,14 +2502,10 @@ CON_COMMAND(tfsolo_reset, "Reset mod progress to default.", FCVAR_GAME)
 	{
 		return;
 	}
-	TFInventoryManager()->InitSaveData();
-	TFInventoryManager()->GenerateBaseItems();
-	TFInventoryManager()->WriteSaveData();
-	TFInventoryManager()->LoadSaveData();
-	engine->ClientCmd_Unrestricted("clear_loadout\n");
+	TFInventoryManager()->ResetSaveData();
 }
 
-CON_COMMAND(tfsolo_load, "Load mod progress.", FCVAR_GAME | FCVAR_CHEAT | FCVAR_HIDDEN)
+CON_COMMAND(tfsolo_load, "Load mod progress.", FCVAR_GAME | FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY)
 {
 	TFInventoryManager()->LoadSaveData();
 }

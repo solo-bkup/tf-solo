@@ -38,6 +38,7 @@
 
 extern IScriptManager *scriptmanager;
 extern ScriptClassDesc_t * GetScriptDesc( CBaseEntity * );
+CVScriptGameSystem g_VScriptGameSystem;
 
 // #define VMPROFILE 1
 
@@ -441,10 +442,10 @@ CScriptKeyValues::CScriptKeyValues(KeyValues* pKeyValues)
 // destructor
 CScriptKeyValues::~CScriptKeyValues()
 {
-	if (m_pKeyValues)
-	{
-		m_pKeyValues->deleteThis();
-	}
+	//if (m_pKeyValues)
+	//{
+	//	m_pKeyValues->deleteThis();
+	//}
 	m_pKeyValues = NULL;
 }
 
@@ -729,7 +730,6 @@ static void SendToServerConsole(const char* pszCommand)
 #ifdef TF_CLIENT_DLL
 
 #endif // TF_CLIENT_DLL
-
 
 bool VScriptClientInit()
 {
@@ -1727,50 +1727,6 @@ void VScriptClientTerm()
 	}
 }
 
-
-class CVScriptGameSystem : public CAutoGameSystemPerFrame
-{
-public:
-	// Inherited from IAutoServerSystem
-	virtual bool Init( void )
-	{
-		// <sergiy> Note: we may need script VM garbage collection at this point in the future. Currently, VM does not persist 
-		//          across level boundaries. GC is not necessary because our scripts are supposed to never create circular references
-		//          and everything else is handled with ref counting. For the case of bugs creating circular references, the plan is to add
-		//          diagnostics that detects such loops and warns the developer.
-
-		m_bAllowEntityCreationInScripts = false;
-		VScriptClientInit();
-		return true;
-	}
-
-	virtual void LevelInitPreEntity(void)
-	{
-		m_bAllowEntityCreationInScripts = true;
-	}
-
-	virtual void LevelInitPostEntity( void )
-	{
-		m_bAllowEntityCreationInScripts = false;
-	}
-
-	virtual void LevelShutdownPostEntity( void )
-	{
-		//VScriptClientTerm();
-		m_bAllowEntityCreationInScripts = false;
-	}
-
-	virtual void FrameUpdatePostEntityThink() 
-	{ 
-		if ( g_pScriptVM )
-			g_pScriptVM->Frame( gpGlobals->frametime );
-	}
-
-	bool m_bAllowEntityCreationInScripts;
-};
-
-CVScriptGameSystem g_VScriptGameSystem;
-
 bool IsEntityCreationAllowedInScripts( void )
 {
 	return g_VScriptGameSystem.m_bAllowEntityCreationInScripts;
@@ -1842,3 +1798,17 @@ class CVScriptPanoramaHelper : public CAutoGameSystem
 static CVScriptPanoramaHelper g_VScriptPanoramaHelper;
 
 #endif
+
+bool CVScriptGameSystem::Init()
+{
+	m_bAllowEntityCreationInScripts = false;
+	VScriptClientInit();
+	return true;
+}
+
+void CVScriptGameSystem::Reload()
+{
+	m_bAllowEntityCreationInScripts = false;
+	VScriptClientTerm();
+	VScriptClientInit();
+}

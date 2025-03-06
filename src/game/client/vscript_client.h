@@ -78,5 +78,37 @@ public:
 	KeyValues* m_pKeyValues;	// actual KeyValue entity
 };
 
+class CVScriptGameSystem : public CAutoGameSystemPerFrame
+{
+public:
+	// Inherited from IAutoServerSystem
+	virtual bool Init(void);
+
+	virtual void LevelInitPreEntity(void)
+	{
+		m_bAllowEntityCreationInScripts = true;
+	}
+
+	virtual void LevelInitPostEntity(void)
+	{
+		m_bAllowEntityCreationInScripts = false;
+	}
+
+	virtual void LevelShutdownPostEntity(void)
+	{
+		//VScriptClientTerm();
+		m_bAllowEntityCreationInScripts = false;
+	}
+
+	virtual void FrameUpdatePostEntityThink()
+	{
+		if (g_pScriptVM)
+			g_pScriptVM->Frame(gpGlobals->frametime);
+	}
+
+	virtual void Reload();
+
+	bool m_bAllowEntityCreationInScripts;
+};
 
 #endif // VSCRIPT_SERVER_H
