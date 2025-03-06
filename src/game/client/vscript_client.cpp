@@ -298,7 +298,7 @@ bool RunScriptHook(const char* pszHookName, HSCRIPT params)
 
 BEGIN_SCRIPTDESC_ROOT(CScriptKeyValues, "Wrapper class over KeyValues instance")
 DEFINE_SCRIPT_CONSTRUCTOR()
-DEFINE_SCRIPTFUNC_NAMED(ScriptFindKey, "FindKey", "Given a KeyValues object and a key name, find a KeyValues object associated with the key name");
+DEFINE_SCRIPTFUNC_NAMED(ScriptFindKey, "FindKey", "Given a KeyValues object and a key name, find a KeyValues object associated with the key name (optional bool to create it)");
 DEFINE_SCRIPTFUNC_NAMED(ScriptGetFirstSubKey, "GetFirstSubKey", "Given a KeyValues object, return the first sub key object");
 DEFINE_SCRIPTFUNC_NAMED(ScriptGetNextKey, "GetNextKey", "Given a KeyValues object, return the next key object in a sub key group");
 DEFINE_SCRIPTFUNC_NAMED(ScriptGetKeyValueInt, "GetKeyInt", "Given a KeyValues object and a key name, return associated integer value");
@@ -307,11 +307,27 @@ DEFINE_SCRIPTFUNC_NAMED(ScriptGetKeyValueBool, "GetKeyBool", "Given a KeyValues 
 DEFINE_SCRIPTFUNC_NAMED(ScriptGetKeyValueString, "GetKeyString", "Given a KeyValues object and a key name, return associated string value");
 DEFINE_SCRIPTFUNC_NAMED(ScriptIsKeyValueEmpty, "IsKeyEmpty", "Given a KeyValues object and a key name, return true if key name has no value");
 DEFINE_SCRIPTFUNC_NAMED(ScriptReleaseKeyValues, "ReleaseKeyValues", "Given a root KeyValues object, release its contents");
+DEFINE_SCRIPTFUNC_NAMED(ScriptGetKeyValueName, "GetKeyName", "Given a KeyValues object, return key name");
+DEFINE_SCRIPTFUNC_NAMED(ScriptGetKeyValueName, "GetName", "Given a KeyValues object, return key name");
+DEFINE_SCRIPTFUNC_NAMED(ScriptGetKeyValueInt, "GetInt", "Given a KeyValues object and a key name, return associated integer value");
+DEFINE_SCRIPTFUNC_NAMED(ScriptGetKeyValueFloat, "GetFloat", "Given a KeyValues object and a key name, return associated float value");
+DEFINE_SCRIPTFUNC_NAMED(ScriptGetKeyValueBool, "GetBool", "Given a KeyValues object and a key name, return associated bool value");
+DEFINE_SCRIPTFUNC_NAMED(ScriptGetKeyValueString, "GetString", "Given a KeyValues object and a key name, return associated string value");
+DEFINE_SCRIPTFUNC_NAMED(ScriptSetKeyValueInt, "SetInt", "Given a KeyValues object and a key name, set associated integer value");
+DEFINE_SCRIPTFUNC_NAMED(ScriptSetKeyValueFloat, "SetFloat", "Given a KeyValues object and a key name, set associated float value");
+DEFINE_SCRIPTFUNC_NAMED(ScriptSetKeyValueBool, "SetBool", "Given a KeyValues object and a key name, set associated bool value");
+DEFINE_SCRIPTFUNC_NAMED(ScriptSetKeyValueString, "SetString", "Given a KeyValues object and a key name, set associated string value");
+DEFINE_SCRIPTFUNC_NAMED(ScriptSetKeyValueInt, "SetKeyInt", "Given a KeyValues object and a key name, set associated integer value");
+DEFINE_SCRIPTFUNC_NAMED(ScriptSetKeyValueFloat, "SetKeyFloat", "Given a KeyValues object and a key name, set associated float value");
+DEFINE_SCRIPTFUNC_NAMED(ScriptSetKeyValueBool, "SetKeyBool", "Given a KeyValues object and a key name, set associated bool value");
+DEFINE_SCRIPTFUNC_NAMED(ScriptSetKeyValueString, "SetKeyString", "Given a KeyValues object and a key name, set associated string value");
+DEFINE_SCRIPTFUNC_NAMED(ScriptSetKeyValueName, "SetName", "Given a KeyValues object and a key name, set associated key name");
+DEFINE_SCRIPTFUNC_NAMED(ScriptSetKeyValueName, "SetKeyName", "Given a KeyValues object and a key name, set associated key name");
 END_SCRIPTDESC();
 
-HSCRIPT CScriptKeyValues::ScriptFindKey(const char* pszName)
+HSCRIPT CScriptKeyValues::ScriptFindKey(const char* pszName, bool bCreate)
 {
-	KeyValues* pKeyValues = m_pKeyValues->FindKey(pszName);
+	KeyValues* pKeyValues = m_pKeyValues->FindKey(pszName, bCreate);
 	if (pKeyValues == NULL)
 		return NULL;
 
@@ -382,6 +398,37 @@ void CScriptKeyValues::ScriptReleaseKeyValues()
 {
 	m_pKeyValues->deleteThis();
 	m_pKeyValues = NULL;
+}
+
+const char* CScriptKeyValues::ScriptGetKeyValueName(const char* pszName)
+{
+	const char* psz = m_pKeyValues->GetName();
+	return psz;
+}
+
+void CScriptKeyValues::ScriptSetKeyValueName(const char* pszName, const char* i)
+{
+	m_pKeyValues->SetName(i);
+}
+
+void CScriptKeyValues::ScriptSetKeyValueInt(const char* pszName, int i)
+{
+	m_pKeyValues->SetInt(pszName, i);
+}
+
+void CScriptKeyValues::ScriptSetKeyValueFloat(const char* pszName, float i)
+{
+	m_pKeyValues->SetFloat(pszName, i);
+}
+
+void CScriptKeyValues::ScriptSetKeyValueString(const char* pszName, const char* i)
+{
+	m_pKeyValues->SetString(pszName, i);
+}
+
+void CScriptKeyValues::ScriptSetKeyValueBool(const char* pszName, bool i)
+{
+	m_pKeyValues->SetBool(pszName, i);
 }
 
 
@@ -465,6 +512,41 @@ bool ScriptSendGlobalGameEvent(const char* szName, HSCRIPT params)
 
 	return true;
 }
+
+#ifdef TF_CLIENT_DLL
+// ----------------------------------------------------------------------------
+// Solo access
+// ----------------------------------------------------------------------------
+class CSoloAccess
+{
+public:
+	CSoloAccess() { };
+	~CSoloAccess() { };
+
+	void WriteSaveData()
+	{
+		TFInventoryManager()->WriteSaveData();
+	}
+	HSCRIPT GetSaveData(void)
+	{
+		KeyValues* pKeyValues = TFInventoryManager()->GetSaveData();
+		if (pKeyValues == NULL)
+			return NULL;
+
+		CScriptKeyValues* pScriptKey = new CScriptKeyValues(pKeyValues);
+		HSCRIPT hScriptInstance = g_pScriptVM->RegisterInstance(pScriptKey);
+		return hScriptInstance;
+	}
+};
+
+CSoloAccess g_SoloAccess;
+
+BEGIN_SCRIPTDESC_ROOT_NAMED(CSoloAccess, "CSolo", SCRIPT_SINGLETON "Solo access")
+	DEFINE_SCRIPTFUNC(WriteSaveData, "Save solo data.")
+	DEFINE_SCRIPTFUNC(GetSaveData, "Get a KeyValues handle of the solo save data.")
+END_SCRIPTDESC();
+#endif // TF_CLIENT_DLL
+
 
 const Vector& RotatePosition(const Vector rotateOrigin, const QAngle rotateAngles, const Vector position)
 {
@@ -693,8 +775,8 @@ bool VScriptClientInit()
 				ScriptRegisterFunction( g_pScriptVM, GetDeveloperLevel, "Gets the level of 'develoer'" );
 
 				ScriptRegisterFunction(g_pScriptVM, SendToConsole, "Send a string to the client console as a command");
-				//ScriptRegisterFunction(g_pScriptVM, SendToServerConsole, "Send a string that gets executed on the server as a ServerCommand. Respects sv_allow_point_servercommand.");
-				//ScriptRegisterFunctionNamed(g_pScriptVM, SendToServerConsole, "SendToConsoleServer", "Copy of SendToServerConsole with another name for compat.");
+				ScriptRegisterFunction(g_pScriptVM, SendToServerConsole, "Send a string that gets executed on the server as a ClientCommand.");
+				ScriptRegisterFunctionNamed(g_pScriptVM, SendToServerConsole, "SendToConsoleServer", "Copy of SendToServerConsole with another name for compat.");
 				//ScriptRegisterFunction(g_pScriptVM, DoEntFire, SCRIPT_ALIAS("EntFire", "Generate and entity i/o event"));
 				ScriptRegisterFunction(g_pScriptVM, DoUniqueString, SCRIPT_ALIAS("UniqueString", "Generate a string guaranteed to be unique across the life of the script VM, with an optional root string. Useful for adding data to tables when not sure what keys are already in use in that table."));
 				ScriptRegisterFunction(g_pScriptVM, RegisterScriptGameEventListener, "Register as a listener for a game event from script.");
@@ -718,12 +800,6 @@ bool VScriptClientInit()
 				ScriptRegisterFunctionNamed(g_pScriptVM, Script_GetLocalTime, "LocalTime", "Fills out a table with the local time (second, minute, hour, day, month, year, dayofweek, dayofyear, daylightsavings)");
 				ScriptRegisterFunctionNamed(g_pScriptVM, Script_IsInGame, "IsInGame", "Returns true if client is in a server.");
 
-#ifdef TF_CLIENT_DLL
-				//ScriptRegisterFunction(g_pScriptVM, GetLocalPlayer, "Get a script instance of the local player.");
-#endif // TF_CLIENT_DLL
-
-
-
 #if defined( PORTAL2_PUZZLEMAKER )
 				ScriptRegisterFunction( g_pScriptVM, RequestMapRating, "Pops up the map rating dialog for user input" );
 #endif // PORTAL2_PUZZLEMAKER
@@ -734,6 +810,10 @@ bool VScriptClientInit()
 				{
 					GameRules()->RegisterScriptFunctions();
 				}
+
+#ifdef TF_CLIENT_DLL
+				g_pScriptVM->RegisterInstance(&g_SoloAccess, "Solo");
+#endif // TF_CLIENT_DLL
 
 #ifdef PANORAMA_ENABLE
 				g_pScriptVM->RegisterInstance( &g_ScriptPanorama, "Panorama" );
