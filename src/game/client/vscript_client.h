@@ -9,6 +9,9 @@
 
 #include "vscript/ivscript.h"
 #include "vscript_shared.h"
+#include "tier1/KeyValues.h"
+#include "tier1/utlsymbol.h"
+#include "GameEventListener.h"
 
 #if defined( _WIN32 )
 #pragma once
@@ -72,5 +75,17 @@ public:
 	KeyValues* m_pKeyValues;	// actual KeyValue entity
 };
 
+class ISaveRestoreBlockHandler;
+
+bool VScriptServerReplaceClosures(const char* pszScriptName, HSCRIPT hScope, bool bWarnMissing = false);
+ISaveRestoreBlockHandler* GetVScriptSaveRestoreBlockHandler();
+
+class CBaseEntityScriptInstanceHelper : public IScriptInstanceHelper
+{
+	bool ToString(void* p, char* pBuf, int bufSize);
+	void* BindOnRead(HSCRIPT hInstance, void* pOld, const char* pszId);
+};
+
+extern CBaseEntityScriptInstanceHelper g_BaseEntityScriptInstanceHelper;
 
 #endif // VSCRIPT_SERVER_H

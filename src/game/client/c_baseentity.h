@@ -35,6 +35,8 @@
 #include "particle_property.h"
 #include "toolframework/itoolentity.h"
 #include "tier0/threadtools.h"
+#include "vscript/ivscript.h"
+#include "vscript_client.h"
 
 class C_Team;
 class IPhysicsObject;
@@ -162,7 +164,15 @@ struct thinkfunc_t
 #define CREATE_PREDICTED_ENTITY( className )	\
 	C_BaseEntity::CreatePredictedEntityByName( className, __FILE__, __LINE__ );
 
+//-----------------------------------------------------------------------------
 
+//typedef void (C_BaseEntity::* BASEPTR)(void);
+//typedef void (C_BaseEntity::* ENTITYFUNCPTR)(C_BaseEntity* pOther);
+//typedef void (C_BaseEntity::* USEPTR)(C_BaseEntity* pActivator, C_BaseEntity* pCaller, USE_TYPE useType, float value);
+
+//#define DEFINE_THINKFUNC( function ) DEFINE_FUNCTION_RAW( function, BASEPTR )
+//#define DEFINE_ENTITYFUNC( function ) DEFINE_FUNCTION_RAW( function, ENTITYFUNCPTR )
+//#define DEFINE_USEFUNC( function ) DEFINE_FUNCTION_RAW( function, USEPTR )
 
 // Entity flags that only exist on the client.
 #define ENTCLIENTFLAG_GETTINGSHADOWRENDERBOUNDS	0x0001		// Tells us if we're getting the real ent render bounds or the shadow render bounds.
@@ -184,6 +194,7 @@ public:
 	DECLARE_DATADESC();
 	DECLARE_CLIENTCLASS();
 	DECLARE_PREDICTABLE();
+	DECLARE_ENT_SCRIPTDESC();
 
 									C_BaseEntity();
 	virtual							~C_BaseEntity();
@@ -1278,6 +1289,131 @@ public:
 
 	void SetRenderMode( RenderMode_t nRenderMode, bool bForceUpdate = false );
 	RenderMode_t GetRenderMode() const;
+
+	// VSCRIPT
+	HSCRIPT GetScriptInstance();
+	bool ValidateScriptScope();
+	virtual void RunVScripts();
+	bool CallScriptFunction(const char* pFunctionName, ScriptVariant_t* pFunctionReturn, bool bNoDelegation = false);
+	//void ConnectOutputToScript(const char* pszOutput, const char* pszScriptFunc);
+	//void DisconnectOutputFromScript(const char* pszOutput, const char* pszScriptFunc);
+	void ScriptThink();
+	const char* GetScriptId();
+	const char* GetScriptThinkFunc();
+	HSCRIPT GetScriptScope();
+	void RunPrecacheScripts(void);
+	void RunOnPostSpawnScripts(void);
+	void TerminateScriptScope();
+	HSCRIPT	GetScriptOwnerEntity();
+	virtual void SetScriptOwnerEntity(HSCRIPT pOwner);
+
+	inline void ScriptDisableDraw()
+	{
+		AddEffects(EF_NODRAW);
+	}
+
+	inline void ScriptEnableDraw()
+	{
+		RemoveEffects(EF_NODRAW);
+	}
+
+	inline void ScriptSetDrawEnabled(bool bEnable)
+	{
+		if (bEnable)
+			ScriptEnableDraw();
+		else
+			ScriptDisableDraw();
+	}
+
+	bool RunScriptFile(const char* pScriptFile, bool bUseRootScope = false);
+	bool RunScript(const char* pScriptText, const char* pDebugFilename = "C_BaseEntity::RunScript");
+	void ScriptRunScriptFile(const char* pScriptFile, bool bUseRootScope = false);
+	void ScriptRunScriptCode(const char* pScriptText);
+
+	HSCRIPT ScriptGetMoveParent(void);
+	HSCRIPT ScriptGetRootMoveParent();
+	HSCRIPT ScriptFirstMoveChild(void);
+	HSCRIPT ScriptNextMovePeer(void);
+
+	const Vector& ScriptGetForward(void) { static Vector vecForward; this->GetVectors(&vecForward, NULL, NULL); return vecForward; }
+	const Vector& ScriptGetRight(void) { static Vector vecRight; this->GetVectors(NULL, &vecRight, NULL); return vecRight; }
+	const Vector& ScriptGetLeft(void)
+	{
+		DevMsg("Using legacy GetLeftVector, which actually returns the RIGHT vector for compatibility. Do not use me! Move to GetRightVector please!\n");
+		return this->ScriptGetRight();
+	}
+	const Vector& ScriptGetUp(void) { static Vector vecUp; this->GetVectors(NULL, NULL, &vecUp); return vecUp; }
+
+	const Vector& ScriptGetAngles(void)
+	{
+		DevMsg("Using legacy GetAngles.\nDo not use me! Do not use me! Move to GetAbsAngles or GetLocalAngles please!\n");
+		static Vector vec; QAngle qa = this->GetAbsAngles(); vec.x = qa.x; vec.y = qa.y; vec.z = qa.z; return vec;
+	}
+
+	void ScriptSetVelocity(const Vector& vecAbsVelocity)
+	{
+		DevMsg("Using legacy SetVelocity.\nDo not use me! Move to SetAbsVelocity please!\n");
+		this->SetAbsVelocity(vecAbsVelocity);
+	}
+	const Vector& ScriptGetVelocity(void)
+	{
+		DevMsg("Using legacy GetVelocity.\nDo not use me! Do not use me! Move to GetAbsVelocity please!\n");
+		return this->GetAbsVelocity();
+	}
+
+	const QAngle& ScriptEyeAngles(void)
+	{
+		return this->EyeAngles();
+	}
+
+	const QAngle& ScriptLocalEyeAngles(void)
+	{
+		return this->EyeAngles();
+	}
+
+	int ScriptGetMoveType(void)
+	{
+		return (int)GetMoveType();
+	}
+
+	void ScriptSetMoveType(int nMoveType, int nMoveCollide)
+	{
+		SetMoveType((MoveType_t)nMoveType, (MoveCollide_t)nMoveCollide);
+	}
+
+	void ScriptSetSolid(int nSolidType)
+	{
+		SetSolid((SolidType_t)nSolidType);
+	}
+
+	int ScriptGetSolid(void)
+	{
+		return (int)GetSolid();
+	}
+
+	//HSCRIPT ScriptGetModelKeyValues(void);
+
+	void ScriptPrecacheModel(const char* name);
+	void ScriptPrecacheScriptSound(const char* name);
+
+	//bool ScriptAcceptInput(const char* pInputName, const char* pValue, HSCRIPT hActivator, HSCRIPT hCaller);
+
+	void					ScriptEmitSound(const char* soundname);
+	void					ScriptStopSound(const char* soundname);
+	float					ScriptSoundDuration(const char* soundname, const char* actormodel);
+	void VScriptPrecacheScriptSound(const char* soundname);
+
+	string_t		m_iszVScripts;
+	string_t		m_iszScriptThinkFunction;
+	CScriptScope	m_ScriptScope;
+	HSCRIPT			m_hScriptInstance;
+	string_t		m_iszScriptId;
+	CScriptKeyValues* m_pScriptModelKeyValues;
+
+	inline const char* C_BaseEntity::ScriptGetModelName(void) const
+	{
+		return STRING(m_ModelName);
+	}
 
 public:	
 

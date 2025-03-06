@@ -401,6 +401,172 @@ CScriptKeyValues::~CScriptKeyValues()
 	m_pKeyValues = NULL;
 }
 
+static short VSCRIPT_CLIENT_SAVE_RESTORE_VERSION = 2;
+
+//-----------------------------------------------------------------------------
+
+class CVScriptSaveRestoreBlockHandler : public CDefSaveRestoreBlockHandler
+{
+public:
+	CVScriptSaveRestoreBlockHandler() :
+		m_InstanceMap(DefLessFunc(const char*))
+	{
+	}
+	const char* GetBlockName()
+	{
+		return "VScriptClient";
+	}
+
+	//---------------------------------
+
+	void Save(ISave* pSave)
+	{
+		pSave->StartBlock();
+
+		int temp = g_pScriptVM != NULL;
+		pSave->WriteInt(&temp);
+		if (g_pScriptVM)
+		{
+			temp = g_pScriptVM->GetLanguage();
+			pSave->WriteInt(&temp);
+			CUtlBuffer buffer;
+			g_pScriptVM->WriteState(&buffer);
+			temp = buffer.TellPut();
+			pSave->WriteInt(&temp);
+			if (temp > 0)
+			{
+				pSave->WriteData((const char*)buffer.Base(), temp);
+			}
+		}
+
+		pSave->EndBlock();
+	}
+
+	//---------------------------------
+
+	void WriteSaveHeaders(ISave* pSave)
+	{
+		pSave->WriteShort(&VSCRIPT_CLIENT_SAVE_RESTORE_VERSION);
+	}
+
+	//---------------------------------
+
+	void ReadRestoreHeaders(IRestore* pRestore)
+	{
+		// No reason why any future version shouldn't try to retain backward compatability. The default here is to not do so.
+		short version;
+		pRestore->ReadShort(&version);
+		m_fDoLoad = (version == VSCRIPT_CLIENT_SAVE_RESTORE_VERSION);
+	}
+
+	//---------------------------------
+
+	void Restore(IRestore* pRestore, bool createPlayers)
+	{
+		if (!m_fDoLoad && g_pScriptVM)
+		{
+			return;
+		}
+		C_BaseEntity* pEnt = cl_entitylist->FirstBaseEntity();
+		while (pEnt)
+		{
+			if (pEnt->m_iszScriptId != NULL_STRING)
+			{
+				g_pScriptVM->RegisterClass(pEnt->GetScriptDesc());
+				m_InstanceMap.Insert(STRING(pEnt->m_iszScriptId), pEnt);
+			}
+			pEnt = cl_entitylist->NextBaseEntity(pEnt);
+		}
+
+		pRestore->StartBlock();
+		if (pRestore->ReadInt() && pRestore->ReadInt() == g_pScriptVM->GetLanguage())
+		{
+			int nBytes = pRestore->ReadInt();
+			if (nBytes > 0)
+			{
+				CUtlBuffer buffer;
+				buffer.EnsureCapacity(nBytes);
+				pRestore->ReadData((char*)buffer.AccessForDirectRead(nBytes), nBytes, 0);
+				g_pScriptVM->ReadState(&buffer);
+			}
+		}
+		pRestore->EndBlock();
+	}
+
+	void PostRestore(void)
+	{
+		for (int i = m_InstanceMap.FirstInorder(); i != m_InstanceMap.InvalidIndex(); i = m_InstanceMap.NextInorder(i))
+		{
+			C_BaseEntity* pEnt = m_InstanceMap[i];
+			if (pEnt->m_hScriptInstance)
+			{
+				ScriptVariant_t variant;
+				if (g_pScriptVM->GetValue(STRING(pEnt->m_iszScriptId), &variant) && variant.GetType() == FIELD_HSCRIPT)
+				{
+					pEnt->m_ScriptScope.Init(variant, false);
+					pEnt->RunPrecacheScripts();
+				}
+			}
+			else
+			{
+				// Script system probably has no internal references
+				pEnt->m_iszScriptId = NULL_STRING;
+			}
+		}
+		m_InstanceMap.Purge();
+	}
+
+
+	CUtlMap<const char*, C_BaseEntity*> m_InstanceMap;
+
+private:
+	bool m_fDoLoad;
+};
+
+//-----------------------------------------------------------------------------
+
+CVScriptSaveRestoreBlockHandler g_VScriptSaveRestoreBlockHandler;
+
+//-------------------------------------
+
+ISaveRestoreBlockHandler* GetVScriptSaveRestoreBlockHandler()
+{
+	return &g_VScriptSaveRestoreBlockHandler;
+}
+
+//-----------------------------------------------------------------------------
+
+bool CBaseEntityScriptInstanceHelper::ToString(void* p, char* pBuf, int bufSize)
+{
+	C_BaseEntity* pEntity = (C_BaseEntity*)p;
+	V_snprintf(pBuf, bufSize, "([%d] %s)", pEntity->entindex(), STRING(pEntity->m_iClassname));
+	/*
+	if (pEntity->GetEntityName() != NULL_STRING)
+	{
+		V_snprintf(pBuf, bufSize, "([%d] %s: %s)", pEntity->entindex(), STRING(pEntity->m_iClassname), STRING(pEntity->GetEntityName()));
+	}
+	else
+	{
+		V_snprintf(pBuf, bufSize, "([%d] %s)", pEntity->entindex(), STRING(pEntity->m_iClassname));
+	}
+	*/
+	return true;
+}
+
+void* CBaseEntityScriptInstanceHelper::BindOnRead(HSCRIPT hInstance, void* pOld, const char* pszId)
+{
+	int iEntity = g_VScriptSaveRestoreBlockHandler.m_InstanceMap.Find(pszId);
+	if (iEntity != g_VScriptSaveRestoreBlockHandler.m_InstanceMap.InvalidIndex())
+	{
+		C_BaseEntity* pEnt = g_VScriptSaveRestoreBlockHandler.m_InstanceMap[iEntity];
+		pEnt->m_hScriptInstance = hInstance;
+		return pEnt;
+	}
+	return NULL;
+}
+
+CBaseEntityScriptInstanceHelper g_BaseEntityScriptInstanceHelper;
+
 // Fires a game event from a script file to any listening script hooks.
 // NOTE: this only goes from script, to script. No C code game event listeners
 // will be notified.
@@ -628,6 +794,21 @@ static void Script_GetLocalTime(HSCRIPT hTable)
 
 }
 
+static void Script_AddThinkToEnt(HSCRIPT srcEnt, const char* pszThinkFunc)
+{
+	C_BaseEntity* pEntity = ToEnt(srcEnt);
+	if (!pEntity)
+		return;
+
+	if (pszThinkFunc)
+	{
+		pEntity->m_iszScriptThinkFunction = AllocPooledString(pszThinkFunc);
+		pEntity->SetContextThink(&C_BaseEntity::ScriptThink, gpGlobals->curtime + 0.1f, "ScriptThink");
+	}
+	else
+		pEntity->SetContextThink(NULL, 0, "ScriptThink");  		//pEntity->m_iszScriptThinkFunction = NULL_STRING;
+}
+
 static void SendToConsole(const char* pszCommand)
 {
 	if (!pszCommand)
@@ -645,7 +826,19 @@ static void SendToServerConsole(const char* pszCommand)
 }
 
 #ifdef TF_CLIENT_DLL
+static HSCRIPT Script_GetLocalPlayer()
+{
+	if (!engine->IsInGame())
+		return NULL;
 
+	C_TFPlayer* pLocalPlayer = C_TFPlayer::GetLocalTFPlayer();
+	if (pLocalPlayer)
+	{
+		return ToHScript(pLocalPlayer);
+	}
+
+	return NULL;
+}
 #endif // TF_CLIENT_DLL
 
 
@@ -717,9 +910,12 @@ bool VScriptClientInit()
 				ScriptRegisterFunction(g_pScriptVM, MaxClients, "Get the current number of max clients set by the maxplayers command.");
 				ScriptRegisterFunctionNamed(g_pScriptVM, Script_GetLocalTime, "LocalTime", "Fills out a table with the local time (second, minute, hour, day, month, year, dayofweek, dayofyear, daylightsavings)");
 				ScriptRegisterFunctionNamed(g_pScriptVM, Script_IsInGame, "IsInGame", "Returns true if client is in a server.");
+				ScriptRegisterFunctionNamed(g_pScriptVM, Script_AddThinkToEnt, "AddThinkToEnt", "Adds a late bound think function to the C++ think tables for the obj");
 
 #ifdef TF_CLIENT_DLL
-				//ScriptRegisterFunction(g_pScriptVM, GetLocalPlayer, "Get a script instance of the local player.");
+
+				ScriptRegisterFunctionNamed(g_pScriptVM, Script_GetLocalPlayer, "GetLocalPlayer", "Get a script instance of the local player.");
+
 #endif // TF_CLIENT_DLL
 
 

@@ -273,6 +273,29 @@ inline T* ScriptToEntClass( HSCRIPT hScript )
 	return dynamic_cast< T* >( pEntity );
 }
 #endif
+#ifdef CLIENT_DLL
+inline HSCRIPT ToHScript(C_BaseEntity* pEnt)
+{
+	return (pEnt) ? pEnt->GetScriptInstance() : NULL;
+}
+
+template <> ScriptClassDesc_t* GetScriptDesc<C_BaseEntity>(C_BaseEntity*);
+inline C_BaseEntity* ToEnt(HSCRIPT hScript)
+{
+
+	return (hScript) ? (C_BaseEntity*)g_pScriptVM->GetInstanceValue(hScript, GetScriptDescForClass(C_BaseEntity)) : NULL;
+}
+
+template <typename T>
+inline T* ScriptToEntClass(HSCRIPT hScript)
+{
+	C_BaseEntity* pEntity = ToEnt(hScript);
+	if (!pEntity)
+		return NULL;
+
+	return dynamic_cast<T*>(pEntity);
+}
+#endif
 
 // Shared EntityMessage between game and client .dlls
 #define BASEENTITY_MSG_REMOVE_DECALS	1

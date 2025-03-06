@@ -40,6 +40,7 @@
 #include "cdll_bounded_cvars.h"
 #include "inetchannelinfo.h"
 #include "proto_version.h"
+#include "vscript_client.h"
 
 #ifdef TF_CLIENT_DLL
 #include "c_tf_player.h"
@@ -988,6 +989,12 @@ C_BaseEntity::~C_BaseEntity()
 #endif
 	RemoveFromInterpolationList();
 	RemoveFromTeleportList();
+
+	if (m_hScriptInstance)
+	{
+		g_pScriptVM->RemoveInstance(m_hScriptInstance);
+		m_hScriptInstance = NULL;
+	}
 }
 
 void C_BaseEntity::Clear( void )
@@ -5078,6 +5085,16 @@ void C_BaseEntity::UpdateOnRemove( void )
 	Assert( !GetMoveParent() );
 	UnlinkFromHierarchy();
 	SetGroundEntity( NULL );
+
+	if (m_iszScriptId != NULL_STRING)
+	{
+		RemovePooledString(STRING(m_iszScriptId));
+	}
+	if (m_hScriptInstance)
+	{
+		g_pScriptVM->RemoveInstance(m_hScriptInstance);
+		m_hScriptInstance = NULL;
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -6010,15 +6027,6 @@ bool C_BaseEntity::IsFloating()
 	return false;
 }
 
-
-BEGIN_DATADESC_NO_BASE( C_BaseEntity )
-	DEFINE_FIELD( m_ModelName, FIELD_STRING ),
-	DEFINE_FIELD( m_vecAbsOrigin, FIELD_POSITION_VECTOR ),
-	DEFINE_FIELD( m_angAbsRotation, FIELD_VECTOR ),
-	DEFINE_ARRAY( m_rgflCoordinateFrame, FIELD_FLOAT, 12 ), // NOTE: MUST BE IN LOCAL SPACE, NOT POSITION_VECTOR!!! (see CBaseEntity::Restore)
-	DEFINE_FIELD( m_fFlags, FIELD_INTEGER ),
-END_DATADESC()
-
 //-----------------------------------------------------------------------------
 // Purpose: 
 // Output : Returns true on success, false on failure.
@@ -6475,6 +6483,363 @@ int C_BaseEntity::GetCreationTick() const
 	return m_nCreationTick;
 }
 
+
+//------------------------------------------------------------------------------
+// Purpose :
+// Input   :
+// Output  :
+//------------------------------------------------------------------------------
+void C_BaseEntity::ScriptPrecacheModel(const char* name)
+{
+	PrecacheModel(name);
+}
+
+//------------------------------------------------------------------------------
+// Purpose :
+// Input   :
+// Output  :
+//------------------------------------------------------------------------------
+void C_BaseEntity::ScriptPrecacheScriptSound(const char* name)
+{
+	PrecacheScriptSound(name);
+}
+
+void C_BaseEntity::TerminateScriptScope()
+{
+	m_ScriptScope.Term();
+}
+
+//-----------------------------------------------------------------------------
+// Returns true if the function was located and called. false otherwise.
+// NOTE:	Assumes the function takes no parameters at the moment.
+//-----------------------------------------------------------------------------
+bool C_BaseEntity::CallScriptFunction(const char* pFunctionName, ScriptVariant_t* pFunctionReturn, bool bNoDelegation)
+{
+
+	if (!ValidateScriptScope())
+	{
+		DevMsg("\n***\nFAILED to create private ScriptScope. ABORTING script\n***\n");
+		return false;
+	}
+
+	HSCRIPT hFunc = m_ScriptScope.LookupFunction(pFunctionName, bNoDelegation);
+
+	if (hFunc)
+	{
+		// Kind of a hack to make glados.nut easier to work with...
+		// When a script function is called by connecting the function to an entity output,
+		// the entity who is connected to the output and who has this function in their scope
+		// will be set to 'owninginstance'. In this situation, it can be a different instance than 'self'.
+		g_pScriptVM->SetValue("owninginstance", ScriptVariant_t(GetScriptInstance()));
+		m_ScriptScope.Call(hFunc, pFunctionReturn);
+		m_ScriptScope.ReleaseFunction(hFunc);
+		g_pScriptVM->ClearValue("owninginstance");
+
+		return true;
+	}
+
+	return false;
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+void C_BaseEntity::ScriptThink(void)
+{
+	ScriptVariant_t varThinkRetVal;
+	if (CallScriptFunction(m_iszScriptThinkFunction, &varThinkRetVal))
+	{
+		float flThinkFrequency = 0.0f;
+		if (!varThinkRetVal.AssignTo(&flThinkFrequency))
+		{
+			// use default think interval if script think function doesn't provide one
+			flThinkFrequency = 0.1f;
+		}
+		SetContextThink(&CBaseEntity::ScriptThink,
+			gpGlobals->curtime + flThinkFrequency, "ScriptThink");
+	}
+	else
+	{
+		DevWarning("%s FAILED to call script think function %s!\n", GetDebugName(), STRING(m_iszScriptThinkFunction));
+	}
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+const char* C_BaseEntity::GetScriptId()
+{
+	return STRING(m_iszScriptId);
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+const char* C_BaseEntity::GetScriptThinkFunc()
+{
+	return STRING(m_iszScriptThinkFunction);
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+HSCRIPT C_BaseEntity::GetScriptScope()
+{
+	return m_ScriptScope;
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+HSCRIPT C_BaseEntity::ScriptGetMoveParent(void)
+{
+	return ToHScript(GetMoveParent());
+}
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+HSCRIPT C_BaseEntity::ScriptGetRootMoveParent()
+{
+	return ToHScript(GetRootMoveParent());
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+HSCRIPT C_BaseEntity::ScriptFirstMoveChild(void)
+{
+	return ToHScript(FirstMoveChild());
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+HSCRIPT C_BaseEntity::ScriptNextMovePeer(void)
+{
+	return ToHScript(NextMovePeer());
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Load, compile, and run a script file from disk.
+// Input  : *pScriptFile - The filename of the script file.
+//			bUseRootScope - If true, runs this script in the root scope, not
+//							in this entity's private scope.
+//-----------------------------------------------------------------------------
+bool C_BaseEntity::RunScriptFile(const char* pScriptFile, bool bUseRootScope)
+{
+	if (!ValidateScriptScope())
+	{
+		DevMsg("\n***\nFAILED to create private ScriptScope. ABORTING script\n***\n");
+		return false;
+	}
+
+	if (bUseRootScope)
+	{
+		return VScriptRunScript(pScriptFile);
+	}
+	else
+	{
+		return VScriptRunScript(pScriptFile, m_ScriptScope, true);
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Compile and execute a discrete string of script source code
+// Input  : *pScriptText - A string containing script code to compile and run
+//-----------------------------------------------------------------------------
+bool C_BaseEntity::RunScript(const char* pScriptText, const char* pDebugFilename)
+{
+	if (!ValidateScriptScope())
+	{
+		DevMsg("\n***\nFAILED to create private ScriptScope. ABORTING script\n***\n");
+		return false;
+	}
+
+	if (m_ScriptScope.Run(pScriptText, pDebugFilename) == SCRIPT_ERROR)
+	{
+		DevWarning(" Entity %s encountered an error in RunScript()\n", GetDebugName());
+	}
+
+	return true;
+}
+
+//-----------------------------------------------------------------------------
+//
+//-----------------------------------------------------------------------------
+HSCRIPT C_BaseEntity::GetScriptInstance()
+{
+	if (!m_hScriptInstance)
+	{
+		if (m_iszScriptId == NULL_STRING)
+		{
+			char* szName = (char*)stackalloc(1024);
+			g_pScriptVM->GenerateUniqueKey(GetClassname(), szName, 1024);
+			m_iszScriptId = AllocPooledString(szName);
+		}
+
+		m_hScriptInstance = g_pScriptVM->RegisterInstance(GetScriptDesc(), this);
+		g_pScriptVM->SetInstanceUniqeId(m_hScriptInstance, STRING(m_iszScriptId));
+	}
+	return m_hScriptInstance;
+}
+
+//-----------------------------------------------------------------------------
+// Using my edict, cook up a unique VScript scope that's private to me, and
+// persistent.
+//-----------------------------------------------------------------------------
+bool C_BaseEntity::ValidateScriptScope()
+{
+	if (!m_ScriptScope.IsInitialized())
+	{
+		if (g_pScriptVM == NULL)
+		{
+			ExecuteOnce(DevMsg(" Cannot execute script because there is no available VM\n"));
+			return false;
+		}
+
+		// Force instance creation
+		GetScriptInstance();
+
+		EHANDLE hThis;
+		hThis.Set(this);
+
+		bool bResult = m_ScriptScope.Init(STRING(m_iszScriptId));
+
+		if (!bResult)
+		{
+			DevMsg("%s couldn't create ScriptScope!\n", GetDebugName());
+			return false;
+		}
+		g_pScriptVM->SetValue(m_ScriptScope, "self", GetScriptInstance());
+	}
+	return true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose:	Run all of the vscript files that are set in this entity's VSCRIPTS
+//			field in Hammer. The list is space-delimited.
+//-----------------------------------------------------------------------------
+void C_BaseEntity::RunVScripts()
+{
+	if (m_iszVScripts == NULL_STRING)
+	{
+		return;
+	}
+
+	ValidateScriptScope();
+
+	// All functions we want to have call chained instead of overwritten
+	// by other scripts in this entities list.
+	static const char* sCallChainFunctions[] =
+	{
+		"OnPostSpawn",
+		"Precache"
+	};
+
+	ScriptLanguage_t language = g_pScriptVM->GetLanguage();
+
+	// Make a call chainer for each in this entities scope
+	for (int j = 0; j < ARRAYSIZE(sCallChainFunctions); ++j)
+	{
+
+		if (language == SL_PYTHON)
+		{
+			// UNDONE - handle call chaining in python
+			;
+		}
+		else if (language == SL_SQUIRREL)
+		{
+			//TODO: For perf, this should be precompiled and the %s should be passed as a parameter
+			HSCRIPT hCreateChainScript = g_pScriptVM->CompileScript(CFmtStr("%sCallChain <- CSimpleCallChainer(\"%s\", self.GetScriptScope(), true)", sCallChainFunctions[j], sCallChainFunctions[j]));
+			g_pScriptVM->Run(hCreateChainScript, (HSCRIPT)m_ScriptScope);
+			g_pScriptVM->ReleaseScript(hCreateChainScript);
+		}
+	}
+
+	char szScriptsList[255];
+	V_strcpy_safe(szScriptsList, STRING(m_iszVScripts));
+	CUtlStringList szScripts;
+
+	V_SplitString(szScriptsList, " ", szScripts);
+
+	for (int i = 0; i < szScripts.Count(); i++)
+	{
+		Log_Msg(LOG_VScript, "%s executing script: %s\n", GetDebugName(), szScripts[i]);
+
+		RunScriptFile(szScripts[i], IsWorld());
+
+		for (int j = 0; j < ARRAYSIZE(sCallChainFunctions); ++j)
+		{
+			if (language == SL_PYTHON)
+			{
+				// UNDONE - handle call chaining in python
+				;
+			}
+			else if (language == SL_SQUIRREL)
+			{
+				//TODO: For perf, this should be precompiled and the %s should be passed as a parameter.
+				HSCRIPT hRunPostScriptExecute = g_pScriptVM->CompileScript(CFmtStr("%sCallChain.PostScriptExecute()", sCallChainFunctions[j]));
+				g_pScriptVM->Run(hRunPostScriptExecute, (HSCRIPT)m_ScriptScope);
+				g_pScriptVM->ReleaseScript(hRunPostScriptExecute);
+			}
+		}
+	}
+
+	if (m_iszScriptThinkFunction != NULL_STRING)
+	{
+		SetContextThink(&C_BaseEntity::ScriptThink, gpGlobals->curtime + 0.1f, "ScriptThink");
+	}
+}
+
+
+//--------------------------------------------------------------------------------------------------
+// This is called during entity spawning and after restore to allow scripts to precache any 
+// resources they need.
+//--------------------------------------------------------------------------------------------------
+void C_BaseEntity::RunPrecacheScripts(void)
+{
+	if (m_iszVScripts == NULL_STRING)
+	{
+		return;
+	}
+
+	HSCRIPT hScriptPrecache = m_ScriptScope.LookupFunction("DispatchPrecache");
+	if (hScriptPrecache)
+	{
+		g_pScriptVM->Call(hScriptPrecache, m_ScriptScope);
+		m_ScriptScope.ReleaseFunction(hScriptPrecache);
+	}
+}
+
+void C_BaseEntity::RunOnPostSpawnScripts(void)
+{
+	if (m_iszVScripts == NULL_STRING)
+	{
+		return;
+	}
+
+	HSCRIPT hFuncConnect = g_pScriptVM->LookupFunction("ConnectOutputs");
+	if (hFuncConnect)
+	{
+		g_pScriptVM->Call(hFuncConnect, NULL, true, NULL, (HSCRIPT)m_ScriptScope);
+		g_pScriptVM->ReleaseFunction(hFuncConnect);
+	}
+
+	/*
+	HSCRIPT hFuncDisp = m_ScriptScope.LookupFunction("DispatchOnPostSpawn");
+	if (hFuncDisp)
+	{
+		variant_t variant;
+		variant.SetString(MAKE_STRING("DispatchOnPostSpawn"));
+		g_EventQueue.AddEvent(this, "CallScriptFunction", variant, 0, this, this);
+		m_ScriptScope.ReleaseFunction(hFuncDisp);
+
+	}
+	*/
+}
+
+HSCRIPT	C_BaseEntity::GetScriptOwnerEntity()
+{
+	return ToHScript(GetOwnerEntity());
+}
+
+void C_BaseEntity::SetScriptOwnerEntity(HSCRIPT pOwner)
+{
+	SetOwnerEntity(ToEnt(pOwner));
+}
+
 //------------------------------------------------------------------------------
 void CC_CL_Find_Ent( const CCommand& args )
 {
@@ -6535,3 +6900,209 @@ void CC_CL_Find_Ent_Index( const CCommand& args )
 	}
 }
 static ConCommand cl_find_ent_index("cl_find_ent_index", CC_CL_Find_Ent_Index, "Display data for clientside entity matching specified index.\nFormat: cl_find_ent_index <index>\n", FCVAR_CHEAT);
+
+void C_BaseEntity::ScriptRunScriptFile(const char* pScriptFile, bool bUseRootScope)
+{
+	RunScriptFile(pScriptFile, bUseRootScope);
+}
+void C_BaseEntity::ScriptRunScriptCode(const char* pScript)
+{
+	RunScript(pScript);
+}
+
+BEGIN_DATADESC_NO_BASE(C_BaseEntity)
+	DEFINE_FIELD(m_ModelName, FIELD_STRING),
+	DEFINE_FIELD(m_vecAbsOrigin, FIELD_POSITION_VECTOR),
+	DEFINE_FIELD(m_angAbsRotation, FIELD_VECTOR),
+	DEFINE_ARRAY(m_rgflCoordinateFrame, FIELD_FLOAT, 12), // NOTE: MUST BE IN LOCAL SPACE, NOT POSITION_VECTOR!!! (see CBaseEntity::Restore)
+	DEFINE_FIELD(m_fFlags, FIELD_INTEGER),
+
+	DEFINE_FIELD(m_iszScriptId, FIELD_STRING),
+	DEFINE_KEYFIELD(m_iszVScripts, FIELD_STRING, "vscripts"),
+	DEFINE_KEYFIELD(m_iszScriptThinkFunction, FIELD_STRING, "thinkfunction"),
+
+	//DEFINE_THINKFUNC(ScriptThink),
+END_DATADESC()
+
+DEFINE_SCRIPT_INSTANCE_HELPER(C_BaseEntity, &g_BaseEntityScriptInstanceHelper)
+
+BEGIN_ENT_SCRIPTDESC_ROOT(C_BaseEntity, "Root class of all server-side entities")
+	//DEFINE_SCRIPTFUNC_NAMED(ConnectOutputToScript, "ConnectOutput", "Adds an I/O connection that will call the named function when the specified output fires")
+	//DEFINE_SCRIPTFUNC_NAMED(DisconnectOutputFromScript, "DisconnectOutput", "Removes a connected script function from an I/O event.")
+
+	DEFINE_SCRIPTFUNC(GetHealth, "")
+	DEFINE_SCRIPTFUNC(SetHealth, "")
+	DEFINE_SCRIPTFUNC(GetMaxHealth, "")
+	//DEFINE_SCRIPTFUNC(SetMaxHealth, "")
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptTakeDamage, "TakeDamage", "(flDamage, nDamageType, hAttacker)")
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptTakeDamageEx, "TakeDamageEx", "(hInflictor, hAttacker, hWeapon, vecDamageForce, vecDamagePosition, flDamage, nDamageType)")
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptTakeDamageCustom, "TakeDamageCustom", "(hInflictor, hAttacker, hWeapon, vecDamageForce, vecDamagePosition, flDamage, nDamageType, nCustomDamageType)")
+
+	DEFINE_SCRIPTFUNC_NAMED(ScriptGetModelName, "GetModelName", "Returns the name of the model")
+	DEFINE_SCRIPTFUNC(SetModel, "Set a model for this entity")
+	DEFINE_SCRIPTFUNC(IsPlayer, "")
+	DEFINE_SCRIPTFUNC_NAMED(entindex, "GetEntityIndex", "")
+
+	DEFINE_SCRIPTFUNC_NAMED(ScriptPrecacheModel, "PrecacheModel", "")
+	DEFINE_SCRIPTFUNC_NAMED(ScriptPrecacheScriptSound, "PrecacheScriptSound", "")
+
+	DEFINE_SCRIPTFUNC_NAMED(ScriptEmitSound, "EmitSound", "Plays a sound from this entity.")
+	DEFINE_SCRIPTFUNC_NAMED(ScriptStopSound, "StopSound", "Stops a sound on this entity.")
+	DEFINE_SCRIPTFUNC_NAMED(VScriptPrecacheScriptSound, "PrecacheSoundScript", "Precache a sound for later playing.")
+	DEFINE_SCRIPTFUNC_NAMED(ScriptSoundDuration, "GetSoundDuration", "Returns float duration of the sound. Takes soundname and optional actormodelname.")
+
+
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptInputKill, "Kill", "")
+	DEFINE_SCRIPTFUNC(GetClassname, "")
+	//DEFINE_SCRIPTFUNC_NAMED(GetEntityNameAsCStr, "GetName", "")
+	//DEFINE_SCRIPTFUNC(GetPreTemplateName, "Get the entity name stripped of template unique decoration")
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptGetEHandle, "GetEntityHandle", "Get the entity as an EHANDLE")
+
+	DEFINE_SCRIPTFUNC_NAMED(GetAbsOrigin, "GetOrigin", "This is GetAbsOrigin with a funny script name for some reason. Not changing it for legacy compat though.")
+	DEFINE_SCRIPTFUNC(SetAbsOrigin, "SetAbsOrigin")
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptSetOrigin, "SetOrigin", "THIS DOESNT CALL SetAbsOrigin IT CALLS Teleport")
+	DEFINE_SCRIPTFUNC_NAMED(ScriptGetForward, "GetForwardVector", "Get the forward vector of the entity")
+	DEFINE_SCRIPTFUNC_NAMED(ScriptGetRight, "GetRightVector", "Get the right vector of the entity")
+	DEFINE_SCRIPTFUNC_NAMED(ScriptGetLeft, "GetLeftVector", "!!!LEGACY FOR COMPAT!!! Get the **right** vector of the entity. This is purely for compatibility. DO NOT USE ME. Use GetRightVector!")
+	DEFINE_SCRIPTFUNC_NAMED(ScriptGetUp, "GetUpVector", "Get the up vector of the entity")
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptSetForward, "SetForwardVector", "Set the orientation of the entity to have this forward vector")
+
+	DEFINE_SCRIPTFUNC(GetAbsVelocity, "Returns the current absolute velocity of the entity")
+	DEFINE_SCRIPTFUNC_NAMED(ScriptGetVelocity, "GetVelocity", "!!!LEGACY FOR COMPAT!!! Use GetAbsVelocity")
+	DEFINE_SCRIPTFUNC(SetAbsVelocity, "Sets the current absolute velocity of the entity")
+	DEFINE_SCRIPTFUNC_NAMED(ScriptSetVelocity, "SetVelocity", "!!!LEGACY FOR COMPAT!!! Use SetAbsVelocity")
+
+	// 	DEFINE_SCRIPTFUNC_NAMED( SetLocalVelocity, "SetLocalVelocity", ""  )
+	DEFINE_SCRIPTFUNC(GetLocalVelocity, "Get Entity relative velocity")
+	DEFINE_SCRIPTFUNC(GetBaseVelocity, "Get Base velocity")
+
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptSetLocalAngularVelocity, "SetAngularVelocity", "Set the local angular velocity - takes float pitch,yaw,roll velocities")
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptGetLocalAngularVelocity, "GetAngularVelocity", "Get the local angular velocity - returns a vector of pitch,yaw,roll")
+
+	DEFINE_SCRIPTFUNC(ApplyAbsVelocityImpulse, "Apply a Velocity Impulse")
+	DEFINE_SCRIPTFUNC(ApplyLocalAngularVelocityImpulse, "Apply an Ang Velocity Impulse")
+
+	//DEFINE_SCRIPTFUNC(GetFriction, "Get PLAYER friction, ignored for objects")
+
+	DEFINE_SCRIPTFUNC(SetFriction, "Set PLAYER friction, ignored for objects")
+	DEFINE_SCRIPTFUNC(SetGravity, "Set PLAYER gravity, ignored for objects")
+	#if defined( ENABLE_FRICTION_OVERRIDE )
+	DEFINE_SCRIPTFUNC(OverrideFriction, "Takes duration, value for a temporary override")
+	#endif
+
+	DEFINE_SCRIPTFUNC_NAMED(WorldSpaceCenter, "GetCenter", "Get vector to center of object - absolute coords")
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptEyePosition, "EyePosition", "Get vector to eye position - absolute coords")
+
+	DEFINE_SCRIPTFUNC(SetAbsAngles, "Set entity pitch, yaw, roll as QAngles")
+	DEFINE_SCRIPTFUNC(GetAbsAngles, "Get entity pitch, yaw, roll as QAngles")
+
+	DEFINE_SCRIPTFUNC(GetLocalOrigin, "")
+	DEFINE_SCRIPTFUNC(GetLocalAngles, "")
+	DEFINE_SCRIPTFUNC(SetLocalOrigin, "")
+	DEFINE_SCRIPTFUNC(SetLocalAngles, "")
+
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptSetAngles, "SetAngles", "!!!LEGACY FOR COMPAT!!! DO NOT USE ME. Set entity pitch, yaw, roll")
+	DEFINE_SCRIPTFUNC_NAMED(ScriptGetAngles, "GetAngles", "!!!LEGACY FOR COMPAT!!! DO NOT USE ME. Get entity pitch, yaw, roll as a vector")
+
+	//DEFINE_SCRIPTFUNC_NAMED( AddContextForScript, "SetContext", "SetContext( name , value, duration ): store any key/value pair in this entity's dialog contexts. Value must be a string. Will last for duration (set -1 to mean 'forever')." )
+	//DEFINE_SCRIPTFUNC_NAMED( AddContextForScriptNumeric, "SetContextNum", "SetContext( name , value, duration ): store any key/value pair in this entity's dialog contexts. Value must be a number (int or float). Will last for duration (set -1 to mean 'forever')." )
+	//DEFINE_SCRIPTFUNC_NAMED( GetContextForScript, "GetContext", "GetContext( name ): looks up a context and returns it if available. May return string, float, or null (if the context isn't found)" )
+
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptSetSize, "SetSize", "")
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptGetBoundingMins, "GetBoundingMins", "Get a vector containing min bounds, centered on object")
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptGetBoundingMaxs, "GetBoundingMaxs", "Get a vector containing max bounds, centered on object")
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptGetBoundingMinsOriented, "GetBoundingMinsOriented", "Get a vector containing min bounds, centered on object, taking the object's orientation into account")
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptGetBoundingMaxsOriented, "GetBoundingMaxsOriented", "Get a vector containing max bounds, centered on object, taking the object's orientation into account")
+
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptUtilRemove, "Destroy", "")
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptSetOwner, "SetOwner", "")
+	DEFINE_SCRIPTFUNC_NAMED(GetTeamNumber, "GetTeam", "")
+	DEFINE_SCRIPTFUNC_NAMED(ChangeTeam, "SetTeam", "")
+
+	DEFINE_SCRIPTFUNC_NAMED(ScriptGetMoveParent, "GetMoveParent", "If in hierarchy, retrieves the entity's parent")
+	DEFINE_SCRIPTFUNC_NAMED(ScriptGetRootMoveParent, "GetRootMoveParent", "If in hierarchy, walks up the hierarchy to find the root parent")
+	DEFINE_SCRIPTFUNC_NAMED(ScriptFirstMoveChild, "FirstMoveChild", "")
+	DEFINE_SCRIPTFUNC_NAMED(ScriptNextMovePeer, "NextMovePeer", "")
+
+	//DEFINE_SCRIPTFUNC_NAMED(KeyValueFromString, "__KeyValueFromString", SCRIPT_HIDE)
+	//DEFINE_SCRIPTFUNC_NAMED(KeyValueFromFloat, "__KeyValueFromFloat", SCRIPT_HIDE)
+	//DEFINE_SCRIPTFUNC_NAMED(KeyValueFromInt, "__KeyValueFromInt", SCRIPT_HIDE)
+	//DEFINE_SCRIPTFUNC_NAMED(KeyValueFromVector, "__KeyValueFromVector", SCRIPT_HIDE)
+
+	//DEFINE_SCRIPTFUNC(KeyValueFromString, "Executes KeyValue with a string")
+	//DEFINE_SCRIPTFUNC(KeyValueFromFloat, "Executes KeyValue with a float")
+	//DEFINE_SCRIPTFUNC(KeyValueFromInt, "Executes KeyValue with an int")
+	//DEFINE_SCRIPTFUNC(KeyValueFromVector, "Executes KeyValue with a vector")
+
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptGetModelKeyValues, "GetModelKeyValues", "Get a KeyValue class instance on this entity's model")
+
+	DEFINE_SCRIPTFUNC(ValidateScriptScope, "Ensure that an entity's script scope has been created")
+	DEFINE_SCRIPTFUNC(GetScriptScope, "Retrieve the script-side data associated with an entity")
+	DEFINE_SCRIPTFUNC(GetScriptId, "Retrieve the unique identifier used to refer to the entity within the scripting system")
+	DEFINE_SCRIPTFUNC(GetScriptThinkFunc, "Retrieve the name of the current script think func")
+	DEFINE_SCRIPTFUNC_NAMED(GetScriptOwnerEntity, "GetOwner", "Gets this entity's owner")
+	DEFINE_SCRIPTFUNC_NAMED(SetScriptOwnerEntity, "SetOwner", "Sets this entity's owner")
+	DEFINE_SCRIPTFUNC(entindex, "")
+
+	DEFINE_SCRIPTFUNC_NAMED(ScriptEnableDraw, "EnableDraw", "Disable drawing (sets EF_NODRAW)")
+	DEFINE_SCRIPTFUNC_NAMED(ScriptDisableDraw, "DisableDraw", "Enable drawing (removes EF_NODRAW)")
+	DEFINE_SCRIPTFUNC_NAMED(ScriptSetDrawEnabled, "SetDrawEnabled", "Enables drawing if you pass true, disables drawing if you pass false.")
+
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptDispatchSpawn, "DispatchSpawn", "Alternative dispatch spawn, same as the one in CEntities, for convenience.")
+
+	DEFINE_SCRIPTFUNC_NAMED(ScriptEyeAngles, "EyeAngles", "Returns the entity's eye angles")
+	DEFINE_SCRIPTFUNC_NAMED(ScriptLocalEyeAngles, "LocalEyeAngles", "Returns the entity's local eye angles")
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptTeleport, "Teleport", "Teleports this entity")
+
+	//DEFINE_SCRIPTFUNC(GetPhysVelocity, "")
+	//DEFINE_SCRIPTFUNC(GetPhysAngularVelocity, "")
+	//DEFINE_SCRIPTFUNC(SetPhysVelocity, "")
+	//DEFINE_SCRIPTFUNC(SetPhysAngularVelocity, "")
+	DEFINE_SCRIPTFUNC_NAMED(ScriptGetMoveType, "GetMoveType", "")
+	DEFINE_SCRIPTFUNC_NAMED(ScriptSetMoveType, "SetMoveType", "")
+
+	DEFINE_SCRIPTFUNC(AddFlag, "")
+	DEFINE_SCRIPTFUNC(RemoveFlag, "")
+	DEFINE_SCRIPTFUNC(ToggleFlag, "")
+	DEFINE_SCRIPTFUNC(GetFlags, "")
+	DEFINE_SCRIPTFUNC(ClearFlags, "")
+
+	DEFINE_SCRIPTFUNC(GetEFlags, "")
+	DEFINE_SCRIPTFUNC(SetEFlags, "")
+	DEFINE_SCRIPTFUNC(AddEFlags, "")
+	DEFINE_SCRIPTFUNC(RemoveEFlags, "")
+	DEFINE_SCRIPTFUNC(IsEFlagSet, "")
+
+	//DEFINE_SCRIPTFUNC(ClearSolidFlags, "")
+	DEFINE_SCRIPTFUNC(RemoveSolidFlags, "")
+	DEFINE_SCRIPTFUNC(AddSolidFlags, "")
+	DEFINE_SCRIPTFUNC(IsSolidFlagSet, "")
+	DEFINE_SCRIPTFUNC(SetSolidFlags, "")
+	DEFINE_SCRIPTFUNC(IsSolid, "")
+
+	DEFINE_SCRIPTFUNC(GetCollisionGroup, "")
+	DEFINE_SCRIPTFUNC(SetCollisionGroup, "")
+
+	DEFINE_SCRIPTFUNC(GetGravity, "")
+	DEFINE_SCRIPTFUNC(SetGravity, "")
+
+	//DEFINE_SCRIPTFUNC(GetFriction, "")
+	DEFINE_SCRIPTFUNC(SetFriction, "")
+
+	DEFINE_SCRIPTFUNC(GetWaterLevel, "")
+	DEFINE_SCRIPTFUNC(SetWaterLevel, "")
+
+	DEFINE_SCRIPTFUNC(GetWaterType, "")
+	DEFINE_SCRIPTFUNC(SetWaterType, "")
+
+	DEFINE_SCRIPTFUNC_NAMED(ScriptGetSolid, "GetSolid", "")
+	DEFINE_SCRIPTFUNC_NAMED(ScriptSetSolid, "SetSolid", "")
+
+	DEFINE_SCRIPTFUNC(TerminateScriptScope, "Clear the current script scope for this entity")
+
+	//DEFINE_SCRIPTFUNC_NAMED(ScriptAcceptInput, "AcceptInput", "Generate a synchronous I/O event")
+	DEFINE_SCRIPTFUNC(IsAlive, "")
+
+	DEFINE_SCRIPTFUNC_NAMED(ScriptRunScriptFile, "RunScriptFile", "Run a script file on this client entity")
+	DEFINE_SCRIPTFUNC_NAMED(ScriptRunScriptCode, "RunScriptCode", "Run a script on this client entity")
+END_SCRIPTDESC();
