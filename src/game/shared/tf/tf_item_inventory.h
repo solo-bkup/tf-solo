@@ -233,8 +233,6 @@ public:
 	void				LoadSaveData();
 	void				WriteSaveData();
 	void				ResetSaveData();
-	void				AddCredits(long amount);
-	uint64_t			GetCredits();
 #endif
 
 	virtual void FireGameEvent(IGameEvent* event);

@@ -11,12 +11,12 @@ function IncludeScript( name, scope = null )
 }
 
 IncludeScript("client/util.nut")
-ClearGameEventCallbacks();
+ClearGameEventCallbacks()
 
 IncludeScript("client/savedata.nut")
 
-local TFSOLO_EventTag = UniqueString()
-getroottable()[TFSOLO_EventTag] <- {
+TFSOLO.CoreEventTag <- UniqueString()
+getroottable()[TFSOLO.CoreEventTag] <- {
 	OnGameEvent_player_death = function(params)
 	{
 	}
@@ -25,9 +25,9 @@ getroottable()[TFSOLO_EventTag] <- {
 	{
 	}
 }
-local TFSOLO_EventTable = getroottable()[TFSOLO_EventTag]
-__CollectGameEventCallbacks(TFSOLO_EventTable)
-foreach (n,f in TFSOLO_EventTable)
+TFSOLO.CoreEventTable <- getroottable()[TFSOLO.CoreEventTag]
+__CollectGameEventCallbacks(TFSOLO.CoreEventTable)
+foreach (n,f in TFSOLO.CoreEventTable)
 {
-	TFSOLO_EventTable[n] = f.bindenv(this)
+	TFSOLO.CoreEventTable[n] = f.bindenv(this)
 }

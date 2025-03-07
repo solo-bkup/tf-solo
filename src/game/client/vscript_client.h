@@ -106,6 +106,11 @@ public:
 			g_pScriptVM->Frame(gpGlobals->frametime);
 	}
 
+	virtual void Run(const char* code)
+	{
+		g_pScriptVM->Run(code);
+	}
+
 	virtual void Reload();
 
 	bool m_bAllowEntityCreationInScripts;
