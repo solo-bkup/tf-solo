@@ -59,7 +59,8 @@ public:
 	CScriptKeyValues(KeyValues* pKeyValues = NULL);
 	~CScriptKeyValues();
 
-	HSCRIPT ScriptFindKey(const char* pszName, bool bCreate = false);
+	HSCRIPT ScriptFindKey(const char* pszName);
+	HSCRIPT ScriptGetKey(const char* pszName, bool bCreate);
 	HSCRIPT ScriptGetFirstSubKey(void);
 	HSCRIPT ScriptGetNextKey(void);
 	int ScriptGetKeyValueInt(const char* pszName);

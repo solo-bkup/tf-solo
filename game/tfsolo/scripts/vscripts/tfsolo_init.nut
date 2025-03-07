@@ -2,7 +2,10 @@ printl("[TFSOLO] Init")
 ::TFSOLO <- {}
 ::TFMOD <- 1
 
-local TFSOLO.CoreEventTag = UniqueString()
+IncludeScript("solo/util.nut")
+IncludeScript("solo/itemschema.nut")
+
+TFSOLO.CoreEventTag <- UniqueString()
 getroottable()[TFSOLO.CoreEventTag] <- {
 	OnGameEvent_teamplay_round_start = function(params)
 	{

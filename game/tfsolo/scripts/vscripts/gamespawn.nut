@@ -3,6 +3,7 @@ TFSOLO <- {}
 
 DoIncludeScript("client/util.nut", this)
 ClearGameEventCallbacks()
+IncludeScript("solo/util.nut")
 IncludeScript("client/savedata.nut")
 IncludeScript("solo/itemschema.nut")
 

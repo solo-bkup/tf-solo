@@ -302,7 +302,8 @@ bool RunScriptHook(const char* pszHookName, HSCRIPT params)
 
 BEGIN_SCRIPTDESC_ROOT(CScriptKeyValues, "Wrapper class over KeyValues instance")
 DEFINE_SCRIPT_CONSTRUCTOR()
-DEFINE_SCRIPTFUNC_NAMED(ScriptFindKey, "FindKey", "Given a KeyValues object and a key name, find a KeyValues object associated with the key name (optional bool to create it)");
+DEFINE_SCRIPTFUNC_NAMED(ScriptFindKey, "FindKey", "Given a KeyValues object and a key name, find a KeyValues object associated with the key name");
+DEFINE_SCRIPTFUNC_NAMED(ScriptGetKey, "GetKey", "Given a KeyValues object and a key name, find a KeyValues object associated with the key name (optional bool to create it)");
 DEFINE_SCRIPTFUNC_NAMED(ScriptGetFirstSubKey, "GetFirstSubKey", "Given a KeyValues object, return the first sub key object");
 DEFINE_SCRIPTFUNC_NAMED(ScriptGetNextKey, "GetNextKey", "Given a KeyValues object, return the next key object in a sub key group");
 DEFINE_SCRIPTFUNC_NAMED(ScriptGetKeyValueInt, "GetKeyInt", "Given a KeyValues object and a key name, return associated integer value");
@@ -330,7 +331,20 @@ DEFINE_SCRIPTFUNC_NAMED(ScriptSetKeyValueName, "SetKeyName", "Given a KeyValues 
 DEFINE_SCRIPTFUNC_NAMED(ScriptRemoveSubKey, "RemoveSubKey", "Given a KeyValues object and a key name, remove sub key");
 END_SCRIPTDESC();
 
-HSCRIPT CScriptKeyValues::ScriptFindKey(const char* pszName, bool bCreate)
+HSCRIPT CScriptKeyValues::ScriptFindKey(const char* pszName)
+{
+	KeyValues* pKeyValues = m_pKeyValues->FindKey(pszName);
+	if (pKeyValues == NULL)
+		return NULL;
+
+	CScriptKeyValues* pScriptKey = new CScriptKeyValues(pKeyValues);
+
+	// UNDONE: who calls ReleaseInstance on this??
+	HSCRIPT hScriptInstance = g_pScriptVM->RegisterInstance(pScriptKey);
+	return hScriptInstance;
+}
+
+HSCRIPT CScriptKeyValues::ScriptGetKey(const char* pszName, bool bCreate)
 {
 	KeyValues* pKeyValues = m_pKeyValues->FindKey(pszName, bCreate);
 	if (pKeyValues == NULL)

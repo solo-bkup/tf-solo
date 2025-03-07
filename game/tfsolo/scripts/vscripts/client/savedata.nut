@@ -2,12 +2,12 @@ TFSOLO.InitSaveData <- function()
 {
 	local kv = Solo.GetSaveData()
 	kv.SetInt("Credits",10000)
-	local itemsKV = kv.FindKey("UnlockedItems", true)
-	local armoryKV = kv.FindKey("Armory", true)
-	local botpresetsKV = kv.FindKey("BotPresets", true)
-	local campaignsKV = kv.FindKey("Campaigns", true)
-	local mapsKV = kv.FindKey("Maps", true)
-	local genericKV = kv.FindKey("Generic", true)
+	local itemsKV = kv.GetKey("UnlockedItems", true)
+	local armoryKV = kv.GetKey("Armory", true)
+	local botpresetsKV = kv.GetKey("BotPresets", true)
+	local campaignsKV = kv.GetKey("Campaigns", true)
+	local mapsKV = kv.GetKey("Maps", true)
+	local genericKV = kv.GetKey("Generic", true)
 }
 
 TFSOLO.AddCredits <- function(amount)
@@ -35,7 +35,7 @@ TFSOLO.UnlockItem <- function(item)
 	if (Solo.ItemDefExists(item))
 	{
 		local kv = Solo.GetSaveData()
-		local itemsKV = kv.FindKey("UnlockedItems", true)
+		local itemsKV = kv.GetKey("UnlockedItems", true)
 		itemsKV.SetInt(item,1)
 	}
 }
@@ -46,7 +46,7 @@ TFSOLO.UnlockItemID <- function(item)
 	if (Solo.ItemDefIDExists(item))
 	{
 		local kv = Solo.GetSaveData()
-		local itemsKV = kv.FindKey("UnlockedItems", true)
+		local itemsKV = kv.GetKey("UnlockedItems", true)
 		itemsKV.SetInt(Solo.ItemDefName(item),1)
 	}
 }
@@ -76,7 +76,7 @@ getroottable()[TFSOLO.SaveEventTag] <- {
 	OnGameEvent_solo_armory_flag = function(params)
 	{
 		local kv = Solo.GetSaveData()
-		local targetKey = kv.FindKey("Armory", true);
+		local targetKey = kv.GetKey("Armory", true);
 		if (params.setflag)
 		{
 			targetKey.SetInt(params.flag, params.count);
@@ -91,8 +91,8 @@ getroottable()[TFSOLO.SaveEventTag] <- {
 	OnGameEvent_solo_campaign_flag = function(params)
 	{
 		local kv = Solo.GetSaveData()
-		local holderKey = kv.FindKey("Campaigns", true);
-		local targetKey = holderKey.FindKey(params.campaign, true);
+		local holderKey = kv.GetKey("Campaigns", true);
+		local targetKey = holderKey.GetKey(params.campaign, true);
 		if (params.setflag)
 		{
 			targetKey.SetInt(params.flag, params.count);
@@ -107,8 +107,8 @@ getroottable()[TFSOLO.SaveEventTag] <- {
 	OnGameEvent_solo_botpreset_flag = function(params)
 	{
 		local kv = Solo.GetSaveData()
-		local holderKey = kv.FindKey("BotPresets", true);
-		local targetKey = holderKey.FindKey(params.preset, true);
+		local holderKey = kv.GetKey("BotPresets", true);
+		local targetKey = holderKey.GetKey(params.preset, true);
 		if (params.setflag)
 		{
 			targetKey.SetInt(params.flag, params.count);
@@ -123,7 +123,7 @@ getroottable()[TFSOLO.SaveEventTag] <- {
 	OnGameEvent_solo_generic_flag = function(params)
 	{
 		local kv = Solo.GetSaveData()
-		local targetKey = kv.FindKey("Generic", true);
+		local targetKey = kv.GetKey("Generic", true);
 		if (params.setflag)
 		{
 			targetKey.SetInt(params.flag, params.count);
