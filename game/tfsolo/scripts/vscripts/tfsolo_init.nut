@@ -2,8 +2,8 @@ printl("[TFSOLO] Init")
 ::TFSOLO <- {}
 ::TFMOD <- 1
 
-local TFSOLO_EventTag = UniqueString()
-getroottable()[TFSOLO_EventTag] <- {
+local TFSOLO.CoreEventTag = UniqueString()
+getroottable()[TFSOLO.CoreEventTag] <- {
 	OnGameEvent_teamplay_round_start = function(params)
 	{
 	}
@@ -28,7 +28,7 @@ getroottable()[TFSOLO_EventTag] <- {
 	{
 	}
 }
-__CollectGameEventCallbacks(TFSOLO_EventTag)
+__CollectGameEventCallbacks(TFSOLO.CoreEventTag)
 
 ::SoloTestArmoryFlag <- function()
 {

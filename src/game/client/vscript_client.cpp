@@ -17,6 +17,7 @@
 //#include "gameui/gameui_interface.h"
 #include "vscript_utils.h"
 #include "in_buttons.h"
+#include "vgui/ISurface.h"
 
 
 #ifdef PANORAMA_ENABLE
@@ -326,6 +327,7 @@ DEFINE_SCRIPTFUNC_NAMED(ScriptSetKeyValueBool, "SetKeyBool", "Given a KeyValues 
 DEFINE_SCRIPTFUNC_NAMED(ScriptSetKeyValueString, "SetKeyString", "Given a KeyValues object and a key name, set associated string value");
 DEFINE_SCRIPTFUNC_NAMED(ScriptSetKeyValueName, "SetName", "Given a KeyValues object and a key name, set associated key name");
 DEFINE_SCRIPTFUNC_NAMED(ScriptSetKeyValueName, "SetKeyName", "Given a KeyValues object and a key name, set associated key name");
+DEFINE_SCRIPTFUNC_NAMED(ScriptRemoveSubKey, "RemoveSubKey", "Given a KeyValues object and a key name, remove sub key");
 END_SCRIPTDESC();
 
 HSCRIPT CScriptKeyValues::ScriptFindKey(const char* pszName, bool bCreate)
@@ -401,6 +403,16 @@ void CScriptKeyValues::ScriptReleaseKeyValues()
 {
 	m_pKeyValues->deleteThis();
 	m_pKeyValues = NULL;
+}
+
+void CScriptKeyValues::ScriptRemoveSubKey(const char* pszName)
+{
+	auto key = m_pKeyValues->FindKey(pszName);
+	if (key)
+	{
+		m_pKeyValues->RemoveSubKey(key);
+		key->deleteThis();
+	}
 }
 
 const char* CScriptKeyValues::ScriptGetKeyValueName(const char* pszName)
@@ -515,119 +527,6 @@ bool ScriptSendGlobalGameEvent(const char* szName, HSCRIPT params)
 
 	return true;
 }
-
-#ifdef TF_CLIENT_DLL
-// ----------------------------------------------------------------------------
-// Solo access
-// ----------------------------------------------------------------------------
-class CSoloAccess
-{
-public:
-	CSoloAccess() { };
-	~CSoloAccess() { };
-
-	void WriteSaveData()
-	{
-		TFInventoryManager()->WriteSaveData();
-	}
-	HSCRIPT GetSaveData(void)
-	{
-		KeyValues* pKeyValues = TFInventoryManager()->GetSaveData();
-		if (pKeyValues == NULL)
-			return NULL;
-
-		CScriptKeyValues* pScriptKey = new CScriptKeyValues(pKeyValues);
-		HSCRIPT hScriptInstance = g_pScriptVM->RegisterInstance(pScriptKey);
-		return hScriptInstance;
-	}
-	void UnlockItem(const char* name)
-	{
-		auto def = GetItemSchema()->GetItemDefinitionByName(name);
-		if (def)
-		{
-			TFInventoryManager()->AddSoloItem(def->GetDefinitionIndex());
-		}
-	}
-	void UnlockItemID(int id)
-	{
-		auto def = GetItemSchema()->GetItemDefinition(id);
-		if (def)
-		{
-			TFInventoryManager()->AddSoloItem(id);
-		}
-	}
-	void EconMenuClose()
-	{
-		EconUI()->CloseEconUI();
-	}
-	void EconMenuOpenArmory()
-	{
-		EconUI()->OpenEconUI(ECONUI_ARMORY);
-	}
-	void EconMenuOpenBestiary()
-	{
-		EconUI()->OpenEconUI(ECONUI_CRAFTING);
-	}
-	void EconNotifyPop(const char* text, float lifetime = 5.0f, bool localize = false)
-	{
-		KeyValuesAD keyValues("notify");
-		keyValues->SetColor("custom_color", Color(255, 255, 255, 255));
-		CEconNotification* pNotification = new CEconNotification();
-		if (localize)
-		{
-			pNotification->SetText(text);
-		}
-		else
-		{
-			wchar_t wConvert[1024];
-			V_UTF8ToUnicode(text, wConvert, ARRAYSIZE(wConvert));
-			keyValues->SetWString("message", wConvert);
-			pNotification->SetText("#Notification_System_Message");
-		}
-		pNotification->SetLifetime(lifetime);
-		pNotification->SetSoundFilename("vo/null.mp3");
-		pNotification->SetKeyValues(keyValues);
-		NotificationQueue_Add(pNotification);
-	}
-	bool ItemDefExists(const char* name)
-	{
-		return GetItemSchema()->GetItemDefinitionByName(name) != NULL;
-	}
-	bool ItemDefIDExists(int id)
-	{
-		return GetItemSchema()->GetItemDefinition(id) != NULL;
-	}
-	const char* ItemDefName(int id)
-	{
-		if (GetItemSchema()->GetItemDefinition(id) != NULL)
-		{
-			return GetItemSchema()->GetItemDefinition(id)->GetDefinitionName();
-		}
-		return NULL;
-	}
-};
-
-CSoloAccess g_SoloAccess;
-
-BEGIN_SCRIPTDESC_ROOT_NAMED(CSoloAccess, "CSolo", SCRIPT_SINGLETON "Solo access")
-
-	DEFINE_SCRIPTFUNC(WriteSaveData, "Save solo data.")
-	DEFINE_SCRIPTFUNC(GetSaveData, "Get a KeyValues handle of the solo save data.")
-
-	DEFINE_SCRIPTFUNC(UnlockItem, "Unlock an item by schema name.")
-	DEFINE_SCRIPTFUNC(UnlockItemID, "Unlock an item by schema ID.")
-	DEFINE_SCRIPTFUNC(ItemDefExists, "")
-	DEFINE_SCRIPTFUNC(ItemDefIDExists, "")
-	DEFINE_SCRIPTFUNC(ItemDefName, "")
-
-	DEFINE_SCRIPTFUNC(EconMenuClose, "")
-	DEFINE_SCRIPTFUNC(EconMenuOpenArmory, "")
-	DEFINE_SCRIPTFUNC(EconMenuOpenBestiary, "")
-	DEFINE_SCRIPTFUNC(EconNotifyPop, "")
-	
-END_SCRIPTDESC();
-#endif // TF_CLIENT_DLL
-
 
 const Vector& RotatePosition(const Vector rotateOrigin, const QAngle rotateAngles, const Vector position)
 {
@@ -760,6 +659,24 @@ static const char* Script_FileToString(const char* pszFileName)
 	return fileReadBuf;
 }
 
+static HSCRIPT Script_FileToKeyValues(const char* pszFileName)
+{
+	if (!pszFileName || !*pszFileName)
+	{
+		Log_Warning(LOG_VScript, "Script_FileToKeyValues: NULL/empty file name\n");
+		return NULL;
+	}
+
+	KeyValues* pKeyValues = new KeyValues("scriptkv");
+	if (pKeyValues->LoadFromFile(g_pFullFileSystem, pszFileName, "GAME"))
+	{
+		CScriptKeyValues* pScriptKey = new CScriptKeyValues(pKeyValues);
+		HSCRIPT hScriptInstance = g_pScriptVM->RegisterInstance(pScriptKey);
+		return hScriptInstance;
+	}
+	return NULL;
+}
+
 static int Script_GetFrameCount(void)
 {
 	return gpGlobals->framecount;
@@ -796,6 +713,11 @@ bool Script_FileExists(const char* file, const char* pathID = "GAME")
 	return g_pFullFileSystem->FileExists(file, pathID);
 }
 
+void Script_VGUI_PlaySound(const char* file)
+{
+	vgui::surface()->PlaySound(file);
+}
+
 static void SendToConsole(const char* pszCommand)
 {
 	if (!pszCommand)
@@ -813,7 +735,127 @@ static void SendToServerConsole(const char* pszCommand)
 }
 
 #ifdef TF_CLIENT_DLL
+// ----------------------------------------------------------------------------
+// Solo access
+// ----------------------------------------------------------------------------
+class CSoloAccess
+{
+public:
+	CSoloAccess() { };
+	~CSoloAccess() { };
 
+	void WriteSaveData()
+	{
+		TFInventoryManager()->WriteSaveData();
+	}
+	HSCRIPT GetSaveData(void)
+	{
+		KeyValues* pKeyValues = TFInventoryManager()->GetSaveData();
+		if (pKeyValues == NULL)
+			return NULL;
+
+		CScriptKeyValues* pScriptKey = new CScriptKeyValues(pKeyValues);
+		HSCRIPT hScriptInstance = g_pScriptVM->RegisterInstance(pScriptKey);
+		return hScriptInstance;
+	}
+	void UnlockItem(const char* name)
+	{
+		auto def = GetItemSchema()->GetItemDefinitionByName(name);
+		if (def)
+		{
+			TFInventoryManager()->AddSoloItem(def->GetDefinitionIndex());
+		}
+	}
+	void UnlockItemID(int id)
+	{
+		auto def = GetItemSchema()->GetItemDefinition(id);
+		if (def)
+		{
+			TFInventoryManager()->AddSoloItem(id);
+		}
+	}
+	void EconMenuClose()
+	{
+		EconUI()->CloseEconUI();
+	}
+	void EconMenuOpenArmory()
+	{
+		EconUI()->OpenEconUI(ECONUI_ARMORY);
+	}
+	void EconMenuOpenBestiary()
+	{
+		EconUI()->OpenEconUI(ECONUI_CRAFTING);
+	}
+	void EconNotifyPop(const char* text, float lifetime = 5.0f, bool localize = false)
+	{
+		KeyValuesAD keyValues("notify");
+		keyValues->SetColor("custom_color", Color(255, 255, 255, 255));
+		CEconNotification* pNotification = new CEconNotification();
+		if (localize)
+		{
+			pNotification->SetText(text);
+		}
+		else
+		{
+			wchar_t wConvert[1024];
+			V_UTF8ToUnicode(text, wConvert, ARRAYSIZE(wConvert));
+			keyValues->SetWString("message", wConvert);
+			pNotification->SetText("#Notification_System_Message");
+		}
+		pNotification->SetLifetime(lifetime);
+		pNotification->SetSoundFilename("vo/null.mp3");
+		pNotification->SetKeyValues(keyValues);
+		NotificationQueue_Add(pNotification);
+	}
+	bool ItemDefExists(const char* name)
+	{
+		return GetItemSchema()->GetItemDefinitionByName(name) != NULL;
+	}
+	bool ItemDefIDExists(int id)
+	{
+		return GetItemSchema()->GetItemDefinition(id) != NULL;
+	}
+	const char* ItemDefName(int id)
+	{
+		if (GetItemSchema()->GetItemDefinition(id) != NULL)
+		{
+			return GetItemSchema()->GetItemDefinition(id)->GetDefinitionName();
+		}
+		return NULL;
+	}
+	HSCRIPT ItemSchemaGetKV()
+	{
+		return Script_FileToKeyValues("scripts/items/items_custom.txt");
+	}
+	void ItemSchemaReload(HSCRIPT kv)
+	{
+		auto kvs = (CScriptKeyValues*)g_pScriptVM->GetInstanceValue(kv, GetScriptDescForClass(CScriptKeyValues));
+		GetItemSchema()->BInitFromKV(kvs->m_pKeyValues);
+	}
+};
+
+CSoloAccess g_SoloAccess;
+
+BEGIN_SCRIPTDESC_ROOT_NAMED(CSoloAccess, "CSolo", SCRIPT_SINGLETON "Solo access")
+
+	DEFINE_SCRIPTFUNC(WriteSaveData, "Save solo data.")
+	DEFINE_SCRIPTFUNC(GetSaveData, "Get a KeyValues handle of the solo save data.")
+
+	DEFINE_SCRIPTFUNC(ItemSchemaGetKV, "")
+	DEFINE_SCRIPTFUNC(ItemSchemaReload, "")
+	DEFINE_SCRIPTFUNC(ItemDefExists, "")
+	DEFINE_SCRIPTFUNC(ItemDefIDExists, "")
+	DEFINE_SCRIPTFUNC(ItemDefName, "")
+
+	DEFINE_SCRIPTFUNC(UnlockItem, "Unlock an item by schema name.")
+	DEFINE_SCRIPTFUNC(UnlockItemID, "Unlock an item by schema ID.")
+
+	DEFINE_SCRIPTFUNC(EconMenuClose, "")
+	DEFINE_SCRIPTFUNC(EconMenuOpenArmory, "")
+	DEFINE_SCRIPTFUNC(EconMenuOpenBestiary, "")
+	DEFINE_SCRIPTFUNC(EconNotifyPop, "")
+
+END_SCRIPTDESC();
 #endif // TF_CLIENT_DLL
 
 bool VScriptClientInit()
@@ -878,13 +920,16 @@ bool VScriptClientInit()
 
 				ScriptRegisterFunctionNamed(g_pScriptVM, Script_StringToFile, "StringToFile", "Store a string to a file for later reading");
 				ScriptRegisterFunctionNamed(g_pScriptVM, Script_FileToString, "FileToString", "Reads a string from a file to send to script");
+				ScriptRegisterFunctionNamed(g_pScriptVM, Script_FileToKeyValues, "FileToKeyValues", "Reads KeyValues from a file to send to script");
 
 				ScriptRegisterFunctionNamed(g_pScriptVM, Script_GetFrameCount, "GetFrameCount", "Returns the engines current frame count");
 				ScriptRegisterFunction(g_pScriptVM, FrameTime, "Get the time spent on the server in the last frame");
 				ScriptRegisterFunction(g_pScriptVM, MaxClients, "Get the current number of max clients set by the maxplayers command.");
 				ScriptRegisterFunctionNamed(g_pScriptVM, Script_GetLocalTime, "LocalTime", "Fills out a table with the local time (second, minute, hour, day, month, year, dayofweek, dayofyear, daylightsavings)");
 				ScriptRegisterFunctionNamed(g_pScriptVM, Script_IsInGame, "IsInGame", "Returns true if client is in a server.");
+
 				ScriptRegisterFunctionNamed(g_pScriptVM, Script_FileExists, "FileExists", "Returns true if file exists in file system.");
+				ScriptRegisterFunctionNamed(g_pScriptVM, Script_VGUI_PlaySound, "VGUI_PlaySound", "");
 
 #if defined( PORTAL2_PUZZLEMAKER )
 				ScriptRegisterFunction( g_pScriptVM, RequestMapRating, "Pops up the map rating dialog for user input" );

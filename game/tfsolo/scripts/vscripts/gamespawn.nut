@@ -1,19 +1,10 @@
 printl("[TFSOLO] Game Init")
 TFSOLO <- {}
 
-function IncludeScript( name, scope = null )
-{
-	if ( scope == null )
-	{
-		scope = this;
-	}
-	return ::DoIncludeScript( name, scope );
-}
-
-IncludeScript("client/util.nut")
+DoIncludeScript("client/util.nut", this)
 ClearGameEventCallbacks()
-
 IncludeScript("client/savedata.nut")
+IncludeScript("solo/itemschema.nut")
 
 TFSOLO.CoreEventTag <- UniqueString()
 getroottable()[TFSOLO.CoreEventTag] <- {
@@ -27,7 +18,3 @@ getroottable()[TFSOLO.CoreEventTag] <- {
 }
 TFSOLO.CoreEventTable <- getroottable()[TFSOLO.CoreEventTag]
 __CollectGameEventCallbacks(TFSOLO.CoreEventTable)
-foreach (n,f in TFSOLO.CoreEventTable)
-{
-	TFSOLO.CoreEventTable[n] = f.bindenv(this)
-}

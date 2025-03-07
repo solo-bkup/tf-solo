@@ -74,6 +74,7 @@ public:
 	void ScriptSetKeyValueString(const char* pszName, const char* i);
 	void ScriptSetKeyValueBool(const char* pszName, bool i);
 	void ScriptSetKeyValueName(const char* pszName, const char* i);
+	void ScriptRemoveSubKey(const char* pszName);
 
 	KeyValues* m_pKeyValues;	// actual KeyValue entity
 };
