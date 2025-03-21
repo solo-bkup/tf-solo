@@ -8,6 +8,7 @@
 #include "../utils/common/bsplib.h"
 #include "ibsppack.h"
 
+#ifdef TF_CLIENT_DLL
 // Loads bsppack module (IBSPPack) and calls RepackBSP()
 bool BSP_SyncRepack( const char *pszInputMapFile,
                      const char *pszOutputMapFile,
@@ -19,3 +20,10 @@ void BSP_BackgroundRepack( const char *pszInputMapFile,
                            const char *pszOutputMapFile,
                            IBSPPack::eRepackBSPFlags eRepackFlags = (IBSPPack::eRepackBSPFlags) ( IBSPPack::eRepackBSP_CompressLumps |
                                                                                                   IBSPPack::eRepackBSP_CompressPackfile ) );
+#endif // TF_CLIENT_DLL
+
+// Loads bsppack module (IBSPPack) and caches the asset into the filesystem
+bool BSP_CacheAsset( const char* pszInputMapFile, const char* pszInputAsset, const char* pszOutputAsset );
+
+// Helper to spawn a background thread that runs CacheAsset
+void BSP_BackgroundCache( const char* pszInputMapFile, const char* pszInputAsset, const char* pszOutputAsset );
