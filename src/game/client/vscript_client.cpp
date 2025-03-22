@@ -778,14 +778,14 @@ void Script_BSP_CacheStartSingle( HSCRIPT hTable )
 		nIter = g_pScriptVM->GetKeyValue(hTable, nIter, &vKey, &vValue);
 		nMaps++;
 		const char* pszKeyName = (const char*)vKey;
-		BackgroundBSPCacheThread thread(pszKeyName);
+		BackgroundBSPCacheThread* thread = new BackgroundBSPCacheThread(pszKeyName);
 
 		switch (vValue.GetType())
 		{
 			case FIELD_CSTRING:
 			{
 				// Just one asset. Example: ["maps/pd_selbyen.bsp"] = "models/props_selbyen/seal.mdl"
-				thread.AddFile((const char*)vValue, (const char*)vValue);
+				thread->AddFile((const char*)vValue, (const char*)vValue);
 				nFiles++;
 				break;
 			}
@@ -796,7 +796,7 @@ void Script_BSP_CacheStartSingle( HSCRIPT hTable )
 			}
 		}
 
-		thread.Run();
+		thread->Start();
 	}
 
 	Msg("Started cache jobs for %d files in %d maps.\n", nFiles, nMaps);
@@ -819,7 +819,7 @@ void Script_BSP_CacheStartArray(HSCRIPT hTable)
 		nIter = g_pScriptVM->GetKeyValue(hTable, nIter, &vKey, &vValue);
 		nMaps++;
 		const char* pszKeyName = (const char*)vKey;
-		BackgroundBSPCacheThread thread(pszKeyName);
+		BackgroundBSPCacheThread* thread = new BackgroundBSPCacheThread(pszKeyName);
 
 		switch (vValue.GetType())
 		{
@@ -835,7 +835,7 @@ void Script_BSP_CacheStartArray(HSCRIPT hTable)
 					nArrayIter = g_pScriptVM->GetKeyValue(vValue, nArrayIter, &vItemKey, &vItemValue);
 					if (nArrayIter >= 0)
 					{
-						thread.AddFile((const char*)vItemValue, (const char*)vItemValue);
+						thread->AddFile((const char*)vItemValue, (const char*)vItemValue);
 						nFiles++;
 					}
 					else
@@ -851,7 +851,7 @@ void Script_BSP_CacheStartArray(HSCRIPT hTable)
 			}
 		}
 
-		thread.Run();
+		thread->Start();
 	}
 
 	Msg("Started cache jobs for %d files in %d maps.\n", nFiles, nMaps);
@@ -874,7 +874,7 @@ void Script_BSP_CacheStartRemap(HSCRIPT hTable)
 		nIter = g_pScriptVM->GetKeyValue(hTable, nIter, &vKey, &vValue);
 		nMaps++;
 		const char* pszKeyName = (const char*)vKey;
-		BackgroundBSPCacheThread thread(pszKeyName);
+		BackgroundBSPCacheThread* thread = new BackgroundBSPCacheThread(pszKeyName);
 
 		switch (vValue.GetType())
 		{
@@ -900,7 +900,7 @@ void Script_BSP_CacheStartRemap(HSCRIPT hTable)
 					{
 						case FIELD_CSTRING:
 						{
-							thread.AddFile((const char*)vItemKey, (const char*)vItemValue);
+							thread->AddFile((const char*)vItemKey, (const char*)vItemValue);
 							nFiles++;
 							break;
 						}
@@ -919,7 +919,7 @@ void Script_BSP_CacheStartRemap(HSCRIPT hTable)
 			}
 		}
 
-		thread.Run();
+		thread->Start();
 	}
 
 	Msg("Started cache jobs for %d files in %d maps.\n", nFiles, nMaps);

@@ -431,9 +431,9 @@ CON_COMMAND( bsp_cache, "Load an asset from a BSP file into the internal filesys
 		return;
 	}
 
-	BackgroundBSPCacheThread thread(szInFilename);
-	thread.AddFile(szOutFilename, szOutFilename2);
-	thread.Run();
+	BackgroundBSPCacheThread* thread = new BackgroundBSPCacheThread(szInFilename);
+	thread->AddFile(szOutFilename, szOutFilename2);
+	thread->Start();
 }
 
 CON_COMMAND( bsp_cache_dump, "Dump BSP cache contents to console." )
@@ -482,9 +482,9 @@ CON_COMMAND( bsp_cache_server, "Load an asset from a BSP file into the internal 
 		return;
 	}
 
-	BackgroundBSPCacheThread thread(szInFilename);
-	thread.AddFile(szOutFilename, szOutFilename2);
-	thread.Run();
+	BackgroundBSPCacheThread* thread = new BackgroundBSPCacheThread(szInFilename);
+	thread->AddFile(szOutFilename, szOutFilename2);
+	thread->Start();
 }
 
 CON_COMMAND( bsp_cache_server_dump, "Dump BSP cache contents to console." )
