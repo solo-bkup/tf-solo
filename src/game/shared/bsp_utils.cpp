@@ -265,28 +265,8 @@ PublishedFileId_t MapIDFromName(CUtlString localMapName)
 	return nMapID;
 }
 
-bool BSP_CacheAsset(const char* pszInputMapFile,
-	const char* pszInputAsset, const char* pszOutputAsset)
+bool BackgroundBSPCacheThread::BSP_CacheAssets(const char* pszInputMapFile)
 {
-	char outName[MAX_PATH * 2];
-	V_strcpy_safe(outName, pszOutputAsset);
-	V_StripTrailingSlash(outName);
-	V_FixSlashes(outName);
-
-	// PakFile only uses / slashes
-	char inNameFix[MAX_PATH * 2];
-	V_strcpy_safe(inNameFix, pszOutputAsset);
-	V_StripTrailingSlash(inNameFix);
-	V_FixSlashes(inNameFix, '/');
-	V_FixDoubleSlashes(inNameFix);
-	pszInputAsset = inNameFix;
-
-	if (g_bspMemoryFiles.HasElement(outName))
-	{
-		Warning("BSP cache failed: File %s already exists in cache\n", outName);
-		return false;
-	}
-
 	PublishedFileId_t nMapID = k_PublishedFileIdInvalid;
 	CUtlString localName(pszInputMapFile);
 	localName.ToLower();
@@ -345,9 +325,6 @@ bool BSP_CacheAsset(const char* pszInputMapFile,
 		return false;
 	}
 
-	//Msg("Caching %s -> %s\n", pszInputMapFile, outName);
-
-	CUtlBuffer outputBuffer;
 	void* pakData;
 	int pakSize;
 	libBSPPack->GetPakFileLump(g_pFullFileSystem, pszInputMapFile, &pakData, &pakSize);
@@ -355,109 +332,132 @@ bool BSP_CacheAsset(const char* pszInputMapFile,
 	// Get file from lump
 	auto zip = IZip::CreateZip();
 	zip->ParseFromBuffer(pakData, pakSize);
-	if (!zip->FileExistsInZip(pszInputAsset))
+
+	FOR_EACH_HASHTABLE(m_FileTable, FileIter)
 	{
-		Warning("BSP cache failed: Couldn't find file %s in PakFile lump\n", pszInputAsset);
-		IZip::ReleaseZip(zip);
-		return false;
-	}
-	zip->ReadFileFromZip(pszInputAsset, false, outputBuffer);
-	//Msg("File size %d\n", outputBuffer.TellPut());
+		const char* pszInputAsset = m_FileTable.Key(FileIter);
+		const char* pszOutputAsset = m_FileTable[FileIter];
 
-	// Allocate memory for the file, copy data to it
-	int inFileSize = outputBuffer.TellPut();
-	//void* pMemLen = MemAlloc_Alloc(sizeof(int));
-	//V_memset(pMemLen, inFileSize, sizeof(int));
+		char outName[MAX_PATH * 2];
+		V_strcpy_safe(outName, pszOutputAsset);
+		V_StripTrailingSlash(outName);
+		V_FixSlashes(outName);
 
-	void* pMem = MemAlloc_Alloc(inFileSize);
-	outputBuffer.SeekGet(outputBuffer.SEEK_HEAD, 0);
-	V_memcpy(pMem, outputBuffer.AccessForDirectRead(inFileSize), inFileSize);
+		// PakFile only uses / slashes
+		char inNameFix[MAX_PATH * 2];
+		V_strcpy_safe(inNameFix, pszInputAsset);
+		V_StripTrailingSlash(inNameFix);
+		V_FixSlashes(inNameFix, '/');
+		V_FixDoubleSlashes(inNameFix);
+		pszInputAsset = inNameFix;
 
-	void* outNameMem = MemAlloc_Alloc((MAX_PATH * 2));
-	V_memcpy(outNameMem, outName, (MAX_PATH * 2));
+		if (g_bspMemoryFiles.HasElement(outName))
+		{
+			Warning("BSP cache: File %s already exists in cache\n", outName);
+			continue;
+		}
+#ifndef _DEBUG
+		if (g_pFullFileSystem->IsFileCacheFileLoaded(NULL, outName))
+		{
+			Warning("BSP cache: File %s already exists in internal cache\n", outName);
+			continue;
+		}
+#endif // !_DEBUG
 
-	// Add file to filesystem
-	CMemoryFileBacking* memfile = g_bspMemoryFiles[ g_bspMemoryFiles.Insert( (const char*)outNameMem, new CMemoryFileBacking( g_pFullFileSystem ) ) ];
-	CMemoryFileBacking* existingFile;
-	memfile->m_nLength = inFileSize;
-	memfile->m_pData = (const char*)pMem;
-	memfile->m_pFileName = (const char*)outNameMem;
-	if (!g_pFullFileSystem->RegisterMemoryFile(memfile, &existingFile))
-	{
-		Warning("BSP cache failed: File %s already exists in internal cache\n", outName);
-		return false;
+
+		if (!zip->FileExistsInZip(pszInputAsset))
+		{
+			Warning("BSP cache failed: Couldn't find file %s in PakFile lump\n", pszInputAsset);
+			continue;
+		}
+		CUtlBuffer outputBuffer;
+		zip->ReadFileFromZip(pszInputAsset, false, outputBuffer);
+		//Msg("File size %d\n", outputBuffer.TellPut());
+
+		// Allocate memory for the file, copy data to it
+		int inFileSize = outputBuffer.TellPut();
+		//void* pMemLen = MemAlloc_Alloc(sizeof(int));
+		//V_memset(pMemLen, inFileSize, sizeof(int));
+
+		void* pMem = MemAlloc_Alloc(inFileSize);
+		outputBuffer.SeekGet(outputBuffer.SEEK_HEAD, 0);
+		V_memcpy(pMem, outputBuffer.AccessForDirectRead(inFileSize), inFileSize);
+
+		void* outNameMem = MemAlloc_Alloc((MAX_PATH * 2));
+		V_memcpy(outNameMem, outName, (MAX_PATH * 2));
+
+		// Add file to filesystem
+		CMemoryFileBacking* memfile = g_bspMemoryFiles[g_bspMemoryFiles.Insert((const char*)outNameMem, new CMemoryFileBacking(g_pFullFileSystem))];
+		CMemoryFileBacking* existingFile;
+		memfile->m_nLength = inFileSize;
+		memfile->m_pData = (const char*)pMem;
+		memfile->m_pFileName = (const char*)outNameMem;
+		if (!g_pFullFileSystem->RegisterMemoryFile(memfile, &existingFile))
+		{
+			Warning("BSP cache failed: File %s already exists in internal cache\n", outName);
+			//return true;
+			continue;
+		}
 	}
 
 	IZip::ReleaseZip(zip);
-	Msg("Successfully cached %s\n", outName);
+	Msg("Successfully cached %s\n", pszInputMapFile);
 	return true;
 }
 
-// Helper to create a thread that calls CacheAsset, and clean it up when it exists
-void BSP_BackgroundCache(const char* pszInputMapFile,
-	const char* pszInputAsset, const char* pszInputAsset2)
-{
-	// Make this a gamesystem and thread, so it can check for completion each frame and clean itself up. Run() is the
-	// background thread, Update() is the main thread tick.
-	class BackgroundBSPCacheThread : public CThread, public CAutoGameSystemPerFrame
-	{
-	public:
-		BackgroundBSPCacheThread(const char* pszInputFile, const char* pszInputAsset, const char* pszInputAsset2)
-			: m_strInput(pszInputFile)
-			, m_strOutput(pszInputAsset)
-			, m_strOutput2(pszInputAsset2)
-		{
-			Start();
-		}
-
-		// CThread job - returns 0 for success
-		virtual int Run() OVERRIDE
-		{
-			return BSP_CacheAsset(m_strInput, m_strOutput, m_strOutput2) ? 0 : 1;
-		}
-
-		// GameSystem
-		virtual const char* Name(void) OVERRIDE { return "BackgroundBSPCacheThread"; }
-
-		// Runs on main thread
-		void CheckFinished()
-		{
-			if (!IsAlive())
-			{
-				// Thread finished
-				if (GetResult() != 0)
-				{
-					Warning("Map cache thread failed :(\n");
-				}
-
-				// AutoGameSystem deregisters itself on destruction, we're done
-				delete this;
-			}
-		}
-
 #ifdef CLIENT_DLL
-		virtual void Update(float frametime) OVERRIDE { CheckFinished(); }
-#else // GAME DLL
-		virtual void FrameUpdatePostEntityThink() OVERRIDE { CheckFinished(); }
-#endif
-	private:
-		const char* m_strInput;
-		const char* m_strOutput;
-		const char* m_strOutput2;
-	};
-
-	Msg("Starting BSP cache job %s -> %s\n", pszInputMapFile, pszInputAsset2);
-
-	// Deletes itself up when done
-	new BackgroundBSPCacheThread(pszInputMapFile, pszInputAsset, pszInputAsset2);
-}
-
 CON_COMMAND( bsp_cache, "Load an asset from a BSP file into the internal filesystem" )
 {
+	const char* szInFilename = NULL;
+	const char* szOutFilename = NULL;
+	const char* szOutFilename2 = NULL;
+
+	if (args.ArgC() == 4)
+	{
+		szInFilename = args.Arg(1);
+		szOutFilename = args.Arg(2);
+		szOutFilename2 = args.Arg(3);
+	}
+	else if (args.ArgC() == 3)
+	{
+		szInFilename = args.Arg(1);
+		szOutFilename = args.Arg(2);
+		szOutFilename2 = szOutFilename;
+	}
+
+	if (!szInFilename || !szOutFilename || !strlen(szInFilename) || !strlen(szOutFilename))
+	{
+		Msg("Usage: bsp_cache mapPath assetPath [targetAssetPath]\n");
+		return;
+	}
+
+	BackgroundBSPCacheThread thread(szInFilename);
+	thread.AddFile(szOutFilename, szOutFilename2);
+	thread.Run();
+}
+
+CON_COMMAND( bsp_cache_dump, "Dump BSP cache contents to console." )
+{
+	Msg("Cache count: %d\n", g_bspMemoryFiles.Count());
+	FOR_EACH_HASHTABLE(g_bspMemoryFiles, fileid)
+	{
+		auto file = g_bspMemoryFiles[fileid];
+		Msg("%s (Size: %d)\n", file->m_pFileName, file->m_nLength);
+		//Msg("%s (Size: %d) (DataSize: %d)\n", file->m_pFileName, file->m_nLength, strlen(file->m_pData));
+	}
+}
+
+CON_COMMAND( bsp_cache_clear, "Clear BSP cache." )
+{
+	// TODO
+}
+#endif
+
 #ifdef GAME_DLL
+CON_COMMAND( bsp_cache_server, "Load an asset from a BSP file into the internal filesystem" )
+{
 	if (!UTIL_IsCommandIssuedByServerAdmin())
 		return;
-#endif
 
 	const char* szInFilename = NULL;
 	const char* szOutFilename = NULL;
@@ -482,15 +482,15 @@ CON_COMMAND( bsp_cache, "Load an asset from a BSP file into the internal filesys
 		return;
 	}
 
-	BSP_BackgroundCache(szInFilename, szOutFilename, szOutFilename2);
+	BackgroundBSPCacheThread thread(szInFilename);
+	thread.AddFile(szOutFilename, szOutFilename2);
+	thread.Run();
 }
 
-CON_COMMAND( bsp_cache_dump, "Dump BSP cache contents to console." )
+CON_COMMAND( bsp_cache_server_dump, "Dump BSP cache contents to console." )
 {
-#ifdef GAME_DLL
 	if (!UTIL_IsCommandIssuedByServerAdmin())
 		return;
-#endif
 
 	Msg("Cache count: %d\n", g_bspMemoryFiles.Count());
 	FOR_EACH_HASHTABLE(g_bspMemoryFiles, fileid)
@@ -501,12 +501,11 @@ CON_COMMAND( bsp_cache_dump, "Dump BSP cache contents to console." )
 	}
 }
 
-CON_COMMAND( bsp_cache_clear, "Clear BSP cache." )
+CON_COMMAND( bsp_cache_server_clear, "Clear BSP cache." )
 {
-#ifdef GAME_DLL
 	if (!UTIL_IsCommandIssuedByServerAdmin())
 		return;
-#endif
 
 	// TODO
 }
+#endif
