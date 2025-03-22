@@ -19,7 +19,7 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-#ifdef TF_CLIENT_DLL
+#ifdef CLIENT_DLL
 bool BSP_SyncRepack( const char *pszInputMapFile,
                      const char *pszOutputMapFile,
                      IBSPPack::eRepackBSPFlags eRepackFlags )
@@ -405,6 +405,31 @@ bool BackgroundBSPCacheThread::BSP_CacheAssets(const char* pszInputMapFile)
 	return true;
 }
 
+void BSP_RemoveAssetFromCache(const char* pszAsset)
+{
+	char outName[MAX_PATH * 2];
+	V_strcpy_safe(outName, pszAsset);
+	V_StripTrailingSlash(outName);
+	V_FixSlashes(outName);
+	if (g_bspMemoryFiles.HasElement(outName))
+	{
+		auto mFileHandle = g_bspMemoryFiles.Find(outName);
+		auto mFile = g_bspMemoryFiles[mFileHandle];
+		g_pFullFileSystem->UnregisterMemoryFile(mFile);
+		g_bspMemoryFiles.Remove(outName);
+	}
+}
+
+void BSP_ClearCache()
+{
+	FOR_EACH_HASHTABLE(g_bspMemoryFiles, mFileHandle)
+	{
+		auto mFile = g_bspMemoryFiles[mFileHandle];
+		g_pFullFileSystem->UnregisterMemoryFile(mFile);
+	}
+	g_bspMemoryFiles.RemoveAll();
+}
+
 #ifdef CLIENT_DLL
 CON_COMMAND( bsp_cache, "Load an asset from a BSP file into the internal filesystem" )
 {
@@ -449,7 +474,7 @@ CON_COMMAND( bsp_cache_dump, "Dump BSP cache contents to console." )
 
 CON_COMMAND( bsp_cache_clear, "Clear BSP cache." )
 {
-	// TODO
+	BSP_ClearCache();
 }
 #endif
 
@@ -487,7 +512,7 @@ CON_COMMAND( bsp_cache_server, "Load an asset from a BSP file into the internal 
 	thread->Start();
 }
 
-CON_COMMAND( bsp_cache_server_dump, "Dump BSP cache contents to console." )
+CON_COMMAND( bsp_cache_dump_server, "Dump BSP cache contents to console." )
 {
 	if (!UTIL_IsCommandIssuedByServerAdmin())
 		return;
@@ -501,11 +526,11 @@ CON_COMMAND( bsp_cache_server_dump, "Dump BSP cache contents to console." )
 	}
 }
 
-CON_COMMAND( bsp_cache_server_clear, "Clear BSP cache." )
+CON_COMMAND( bsp_cache_clear_server, "Clear BSP cache." )
 {
 	if (!UTIL_IsCommandIssuedByServerAdmin())
 		return;
 
-	// TODO
+	BSP_ClearCache();
 }
 #endif

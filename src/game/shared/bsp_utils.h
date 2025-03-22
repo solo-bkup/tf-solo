@@ -9,7 +9,7 @@
 #include "ibsppack.h"
 #include <tier1/utlhashtable.h>
 
-#ifdef TF_CLIENT_DLL
+#ifdef CLIENT_DLL
 // Loads bsppack module (IBSPPack) and calls RepackBSP()
 bool BSP_SyncRepack( const char *pszInputMapFile,
                      const char *pszOutputMapFile,
@@ -21,7 +21,7 @@ void BSP_BackgroundRepack( const char *pszInputMapFile,
                            const char *pszOutputMapFile,
                            IBSPPack::eRepackBSPFlags eRepackFlags = (IBSPPack::eRepackBSPFlags) ( IBSPPack::eRepackBSP_CompressLumps |
                                                                                                   IBSPPack::eRepackBSP_CompressPackfile ) );
-#endif // TF_CLIENT_DLL
+#endif // CLIENT_DLL
 
 int g_bspCacheJobsRunning = 0;
 
@@ -77,3 +77,9 @@ public:
 private:
 	const char* m_strInput;
 };
+
+// Remove an asset from BSP cache.
+void BSP_RemoveAssetFromCache(const char* pszAsset);
+
+// Clear out the BSP cache;
+void BSP_ClearCache();

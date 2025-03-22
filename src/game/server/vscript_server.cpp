@@ -2731,6 +2731,34 @@ int Script_BSP_GetCacheJobsRunning()
 	return g_bspCacheJobsRunning;
 }
 
+void Script_BSP_CacheRemove(const char* pszAsset)
+{
+	BSP_RemoveAssetFromCache(pszAsset);
+}
+
+void Script_BSP_CacheRemoveArray(HSCRIPT hTable)
+{
+	int nArrayIter = 0;
+	while (true)
+	{
+		ScriptVariant_t vItemKey, vItemValue;
+		nArrayIter = g_pScriptVM->GetKeyValue(hTable, nArrayIter, &vItemKey, &vItemValue);
+		if (nArrayIter >= 0)
+		{
+			BSP_RemoveAssetFromCache((const char*)vItemValue);
+		}
+		else
+		{
+			break;
+		}
+	}
+}
+
+void Script_BSP_CacheClear()
+{
+	BSP_ClearCache();
+}
+
 #ifdef TF_DLL
 // ----------------------------------------------------------------------------
 // Solo access
@@ -2956,6 +2984,9 @@ bool VScriptServerInit()
 				ScriptRegisterFunctionNamed(g_pScriptVM, Script_BSP_CacheStartArray, "BSP_CacheStartArray", "Request assets to be loaded from map files. Example table: [maps/pd_selbyen.bsp] = [models/props_selbyen/seal.mdl, models/props_selbyen/seal.vvd]");
 				ScriptRegisterFunctionNamed(g_pScriptVM, Script_BSP_CacheStartRemap, "BSP_CacheStartRemap", "Request assets to be loaded from map files with filename remapping. Example table: [maps/pd_selbyen.bsp] = { [models/props_selbyen/seal.mdl] = models/props_selbyen/sealremap.mdl }");
 				ScriptRegisterFunctionNamed(g_pScriptVM, Script_BSP_GetCacheJobsRunning, "BSP_GetCacheJobsRunning", "Get the number of currently running BSP cache jobs.");
+				ScriptRegisterFunctionNamed(g_pScriptVM, Script_BSP_CacheRemove, "BSP_CacheRemove", "Remove an asset from the BSP cache.");
+				ScriptRegisterFunctionNamed(g_pScriptVM, Script_BSP_CacheRemoveArray, "BSP_CacheRemoveArray", "Remove multiple assets from the BSP cache.");
+				ScriptRegisterFunctionNamed(g_pScriptVM, Script_BSP_CacheClear, "BSP_CacheClear", "Clear out the BSP cache.");
 
 				g_pScriptVM->RegisterAllClasses();
 				
