@@ -29,6 +29,7 @@
 #include "tf_matchmaking_dashboard_explanations.h"
 #include "tf_matchmaking_dashboard_mvm_criteria.h"
 #include "tf_statsummary.h"
+#include "vgui/solo/tf_solo_panel.h"
 
 using namespace vgui;
 using namespace GCSDK;
@@ -389,7 +390,7 @@ void CTFMatchmakingDashboard::OnCommand( const char *command )
 	}
 	else if (FStrEq("open_solo", command))
 	{
-		OnCreateServer();
+		OnPlayTraining();
 		return;
 	}
 	else if (FStrEq("restart_round", command))
@@ -925,6 +926,10 @@ void CTFMatchmakingDashboard::OnPlayTraining()
 {
 	ClearAllStacks();
 
+	engine->ClientCmd_Unrestricted("gameui_activate");
+	GetSoloPanel()->SetVisible(true);
+	GetSoloPanel()->GoToCurrentQuest();
+	/*
 	if ( engine->IsInGame() )
 	{
 		const char *pText = "#TF_Training_Prompt";
@@ -945,6 +950,7 @@ void CTFMatchmakingDashboard::OnPlayTraining()
 	{
 		GetClientModeTFNormal()->GameUI()->SendMainMenuCommand( "engine training_showdlg" );
 	}
+	*/
 }
 
 
