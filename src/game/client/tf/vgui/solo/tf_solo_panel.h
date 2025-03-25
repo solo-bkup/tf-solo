@@ -65,6 +65,9 @@ public:
 	virtual void SOCreated(const CSteamID& steamIDOwner, const GCSDK::CSharedObject* pObject, GCSDK::ESOCacheEvent eEvent) OVERRIDE;
 
 	void GoToCurrentQuest();
+	void ForceOpen();
+	void ForceClose();
+	void ForceUpdateControls();
 private:
 	void MapStateChangeSequence();
 	void SetRegion(const CQuestMapRegion* pRegion, bool bZoomIn);
@@ -91,13 +94,8 @@ private:
 	CTFTextToolTip* m_pToolTip;
 	vgui::EditablePanel* m_pMainContainer;
 	vgui::EditablePanel* m_pToolTipEmbeddedPanel;
-	vgui::EditablePanel* m_pIntroPanel;
 	vgui::EditablePanel* m_pMapAreaPanel;
 	vgui::EditablePanel* m_pTurnInCompletePopup;
-	CExImageButton* m_pRewardsStoreButton;
-	CExImageButton* m_pMapButton;
-	CExImageButton* m_pPowerSwitch;
-	CCyclingAdContainerPanel* m_pAdPanel;
 
 	CUtlMap< uint32, CQuestMapRegionPanel* > m_mapRegions;
 	CMsgProtoDefID	m_currentRegion;
@@ -105,34 +103,7 @@ private:
 	bool m_bTurnInSuccess = false;
 	bool m_bAwaitingItemConfirm = false;
 	bool m_bMapLoaded;
-	bool m_bViewingTutorial;
 	EScreenDisplay m_eScreenDisplay;
-
-	CTFVideoPanel* m_pVideoPanel;
-
-	enum EIntroState
-	{
-		STATE_0 = 0,
-		STATE_1,
-		STATE_2,
-		STATE_3,
-		NUM_INTRO_STATES = STATE_3,
-	};
-	EIntroState m_eIntroState;
-
-	struct IntroStage_t
-	{
-		vgui::EditablePanel* m_pStagePanel;
-		CExImageButton* m_pHoverButton;
-	};
-	IntroStage_t m_IntroStages[NUM_INTRO_STATES];
-
-	KeyValues* m_pKVRewardItemPanels;
-	EditablePanel* m_pRewardsShopPanel;
-
-	CPanelAnimationVar(float, m_flTunerPos, "tuner_pos", "0");
-	CPanelAnimationVar(float, m_flTunerWobble, "tuner_wobble", "0");
-	float m_flNextWobbleTime;
 
 };
 

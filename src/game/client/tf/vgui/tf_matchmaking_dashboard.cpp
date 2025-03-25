@@ -29,7 +29,7 @@
 #include "tf_matchmaking_dashboard_explanations.h"
 #include "tf_matchmaking_dashboard_mvm_criteria.h"
 #include "tf_statsummary.h"
-#include "vgui/solo/tf_solo_panel.h"
+#include "vscript_client.h"
 
 using namespace vgui;
 using namespace GCSDK;
@@ -926,9 +926,7 @@ void CTFMatchmakingDashboard::OnPlayTraining()
 {
 	ClearAllStacks();
 
-	engine->ClientCmd_Unrestricted("gameui_activate");
-	GetSoloPanel()->SetVisible(true);
-	GetSoloPanel()->GoToCurrentQuest();
+	engine->ClientCmd_Unrestricted("tfsolo_show_menu");
 	/*
 	if ( engine->IsInGame() )
 	{
@@ -1517,3 +1515,7 @@ void CTFMatchmakingDashboard::UpdateJoinPartyLobbyPanel()
 		g_pClientMode->GetViewportAnimationController()->RunAnimationCommand( m_pJoinPartyLobbyPanel, "ypos", -YRES(50), 0.0f, tf_dashboard_slide_time.GetFloat(), vgui::AnimationController::INTERPOLATOR_GAIN, 0.8f, true, false );
 	}
 }
+
+BEGIN_SCRIPTDESC_ROOT(CTFMatchmakingDashboard, SCRIPT_SINGLETON "Used to access the dashboard interface")
+	DEFINE_SCRIPTFUNC(HideDimmer, "")
+END_SCRIPTDESC();

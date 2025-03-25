@@ -23,6 +23,7 @@
 #include "c_tf_player.h"
 #include "vguicenterprint.h"
 #include "tf_solo_panel.h"
+#include "vscript_client.h"
 
 class CSoloTooltip : public CTFTextToolTip
 {
@@ -55,11 +56,6 @@ CSoloPanel::CSoloPanel(Panel* pParent, const char* pszPanelName)
 	: BaseClass(pParent, pszPanelName)
 	, m_mapRegions(DefLessFunc(uint32))
 	, m_bMapLoaded(false)
-	, m_bViewingTutorial(false)
-	, m_eIntroState(STATE_0)
-	, m_pKVRewardItemPanels(NULL)
-	, m_flNextWobbleTime(0.f)
-	, m_pAdPanel(NULL)
 {
 	// So we can paint the radio needle *on top* of our children
 	SetPostChildPaintEnabled(true);
@@ -88,14 +84,9 @@ CSoloPanel::CSoloPanel(Panel* pParent, const char* pszPanelName)
 	m_pToolTip->SetTooltipDelay(0);
 
 	m_pMainContainer = new EditablePanel(this, "MainContainer");
-	m_pRewardsStoreButton = new CExImageButton(m_pMainContainer, "RewardsStoreButton", (const char*)NULL, this);
-	m_pMapButton = new CExImageButton(m_pMainContainer, "MapButton", (const char*)NULL, this);
-	m_pPowerSwitch = new CExImageButton(m_pMainContainer, "PowerSwitchButton", (const char*)NULL, this);
 
 	m_pMapAreaPanel = new EditablePanel(m_pMainContainer, "MapAreaPanel");
 	m_pTurnInCompletePopup = new EditablePanel(m_pMapAreaPanel, "TurnInCompletePopup");
-
-	m_pAdPanel = new CCyclingAdContainerPanel(m_pMapAreaPanel, "CyclingAd");
 
 	// Quest objective tooltip
 	m_pQuestObjectiveTooltip = new CQuestObjectiveTooltip(m_pMapAreaPanel, "ObjectiveTooltip");
@@ -107,35 +98,13 @@ CSoloPanel::CSoloPanel(Panel* pParent, const char* pszPanelName)
 	m_pQuestNodeViewPanel->SetTextTooltip(m_pToolTip);
 	m_pQuestNodeViewPanel->SetObjectiveTooltip(m_pQuestObjectiveTooltip);
 
-	// Rewards Store
-	m_pRewardsShopPanel = new EditablePanel(m_pMapAreaPanel, "RewardsShop");
-
-	m_pIntroPanel = new EditablePanel(m_pMapAreaPanel, "Introduction");
-	m_IntroStages[STATE_0].m_pStagePanel = new EditablePanel(m_pIntroPanel, "IntroStage1");
-	m_IntroStages[STATE_1].m_pStagePanel = new EditablePanel(m_pIntroPanel, "IntroStage2");
-	m_IntroStages[STATE_2].m_pStagePanel = new EditablePanel(m_pIntroPanel, "IntroStage3");
-	m_pVideoPanel = new CTFVideoPanel(m_pIntroPanel, "VideoPanel");
-	m_IntroStages[STATE_0].m_pHoverButton = new CExImageButton(m_pIntroPanel, "HoverButtonStage1", (const char*)NULL, this);
-	m_IntroStages[STATE_0].m_pHoverButton->PassMouseTicksTo(this, true);
-
-	m_IntroStages[STATE_1].m_pHoverButton = new CExImageButton(m_pIntroPanel, "HoverButtonStage2", (const char*)NULL, this);
-	m_IntroStages[STATE_1].m_pHoverButton->PassMouseTicksTo(this, true);
-
-	m_IntroStages[STATE_2].m_pHoverButton = new CExImageButton(m_pIntroPanel, "HoverButtonStage3", (const char*)NULL, this);
-	m_IntroStages[STATE_2].m_pHoverButton->PassMouseTicksTo(this, true);
-
-	ListenForGameEvent("proto_def_changed");
 	ListenForGameEvent("gameui_hidden");
-	ListenForGameEvent("quest_request");
-	ListenForGameEvent("quest_response");
-	ListenForGameEvent("quest_map_data_changed");
-	ListenForGameEvent("gc_new_session");
-	ListenForGameEvent("quest_turn_in_state");
-	ListenForGameEvent("items_acknowledged");
 
 	// TODO: Tutorial check here
 	m_eScreenDisplay = SCREEN_INVALID;
 	ChangeScreenDisplay(SCREEN_STORE); // This needs to be after all the panel pointers are setup
+
+	g_pScriptVM->RegisterInstance(this, "SoloPanel");
 }
 
 CSoloPanel::~CSoloPanel()
@@ -154,18 +123,6 @@ void CSoloPanel::ApplySchemeSettings(IScheme* pScheme)
 void CSoloPanel::ApplySettings(KeyValues* inResourceData)
 {
 	BaseClass::ApplySettings(inResourceData);
-
-	if (m_pKVRewardItemPanels)
-	{
-		m_pKVRewardItemPanels->deleteThis();
-		m_pKVRewardItemPanels = NULL;
-	}
-
-	KeyValues* pKVRewardKV = inResourceData->FindKey("RewardItemKV");
-	if (pKVRewardKV)
-	{
-		m_pKVRewardItemPanels = pKVRewardKV->MakeCopy();
-	}
 }
 
 void CSoloPanel::OnCommand(const char* pCommand)
@@ -179,12 +136,6 @@ void CSoloPanel::OnCommand(const char* pCommand)
 	{
 		SetVisible(false);
 		return;
-	}
-	else if (FStrEq("endintro", pCommand))
-	{
-		m_bViewingTutorial = false;
-		UpdateControls();
-		m_pIntroPanel->SetVisible(false);
 	}
 	else if (FStrEq("rewards_store", pCommand))
 	{
@@ -218,82 +169,16 @@ void CSoloPanel::OnCommand(const char* pCommand)
 
 void CSoloPanel::ChangeScreenDisplay(EScreenDisplay eScreen)
 {
-
-	switch (eScreen)
-	{
-	case SCREEN_MAP:
-	{
-		// Nothing needed
-	}
-	break;
-
-	case SCREEN_STORE:
-	{
-		CExScrollingEditablePanel* pItemScroller = m_pRewardsShopPanel->FindControl< CExScrollingEditablePanel >("ItemsScroller", true);
-		if (pItemScroller)
-		{
-			pItemScroller->ResetScrollAmount();
-		}
-
-		// Have the rewards re-evaluate their state
-		//FOR_EACH_VEC(m_vecRewardsShopItemPanels, i)
-		//{
-		//	m_vecRewardsShopItemPanels[i]->InvalidateLayout();
-		//}
-
-		// Hide the node view
-		m_pQuestNodeViewPanel->SetVisible(false);
-	}
-	break;
-	};
-
-	m_pRewardsStoreButton->SetSelected(eScreen == SCREEN_STORE);
-	m_pRewardsStoreButton->SetMouseInputEnabled(eScreen != SCREEN_STORE);
-	m_pMapButton->SetSelected(eScreen == SCREEN_MAP);
-	m_pMapButton->SetMouseInputEnabled(eScreen != SCREEN_MAP);
-
-	// Not changing anything
 	if (eScreen == m_eScreenDisplay)
 		return;
-
 	m_eScreenDisplay = eScreen;
-
-	UpdatePassAdPanel();
-
 	PlayTransitionScreenEffects();
 	InvalidateLayout();
 }
 
 void CSoloPanel::UpdateIntroState()
 {
-	// Be default STATE_0 when not mousing over a button
-	EIntroState eNewIntroState = STATE_0;
 
-	for (int eState = STATE_1; eState <= NUM_INTRO_STATES; ++eState)
-	{
-		if (m_IntroStages[eState - 1].m_pHoverButton->IsArmed())
-		{
-			eNewIntroState = (EIntroState)eState;
-			m_pVideoPanel->BeginPlayback(CFmtStr("media/cyoa_intro_stage%d.vid", eState));
-			m_pVideoPanel->SetVisible(true);
-			g_pClientMode->GetViewportAnimationController()->StartAnimationSequence(m_IntroStages[eState - 1].m_pStagePanel, "QuestMapIntro_StageReveal", false);
-			g_pClientMode->GetViewportAnimationController()->StartAnimationSequence(m_pIntroPanel, "QuestMapIntro_ShowStage", false);
-		}
-	}
-
-
-	if (eNewIntroState == STATE_0 && m_eIntroState != STATE_0)
-	{
-		m_pVideoPanel->SetVisible(false);
-		g_pClientMode->GetViewportAnimationController()->StartAnimationSequence(m_pIntroPanel, "QuestMapIntro_ClearStage", false);
-	}
-
-	m_pIntroPanel->SetControlVisible("IntroStage0", eNewIntroState == STATE_0);
-	m_pIntroPanel->SetControlVisible("IntroStage1", eNewIntroState == STATE_1);
-	m_pIntroPanel->SetControlVisible("IntroStage2", eNewIntroState == STATE_2);
-	m_pIntroPanel->SetControlVisible("IntroStage3", eNewIntroState == STATE_3);
-
-	m_eIntroState = eNewIntroState;
 }
 
 void CSoloPanel::PerformLayout()
@@ -308,67 +193,11 @@ void CSoloPanel::PerformLayout()
 
 	UpdateRegionVisibility();
 	UpdateStarsGlobalStatus();
-
-	/*
-	CExScrollingEditablePanel* pItemScroller = m_pRewardsShopPanel->FindControl< CExScrollingEditablePanel >("ItemsScroller", true);
-	Assert(pItemScroller);
-	if (!pItemScroller)
-		return;
-	*/
-
-	//FOR_EACH_VEC(m_vecRewardsShopItemPanels, i)
-	//{
-	//	Panel* pRewardItem = m_vecRewardsShopItemPanels[i];
-	//	int nXPos = (i % 2) == 0 ? XRES(10) : m_pRewardsShopPanel->GetWide() - pRewardItem->GetWide() - XRES(10);
-	//	int nYPos = (i / 2) * (pRewardItem->GetTall() + YRES(10)) + YRES(5) - pItemScroller->GetScrollAmount();
-	//	pRewardItem->SetPos(nXPos, nYPos);
-	//}
 }
 
 void CSoloPanel::PostChildPaint()
 {
 	BaseClass::PostChildPaint();
-
-	static int snWhiteTextureID = -1;
-	if (snWhiteTextureID == -1)
-	{
-		snWhiteTextureID = vgui::surface()->CreateNewTextureID();
-		vgui::surface()->DrawSetTextureFile(snWhiteTextureID, "vgui/white", true, false);
-		if (snWhiteTextureID == -1)
-			return;
-	}
-
-	//
-	// Check if we need to re-randomize the needle wobbling
-	//
-	if (Plat_FloatTime() > m_flNextWobbleTime)
-	{
-		// A whole bunch of randomness to make the needle wobble
-		float flLerpTime = Bias(RandomFloat(0.1f, 1.f), 0.2f);
-		m_flNextWobbleTime = Plat_FloatTime() + flLerpTime;
-
-		g_pClientMode->GetViewportAnimationController()->RunAnimationCommand(this, "tuner_wobble", RandomFloat(-1.f, 1.f), 0.f, flLerpTime, vgui::AnimationController::INTERPOLATOR_BIAS, RandomFloat(0.25f, 0.75f), true, false);
-	}
-
-	//
-	// Draw the needle for the radio tuner
-	//
-	/*
-	{
-		vgui::surface()->DrawSetTexture(snWhiteTextureID);
-		vgui::surface()->DrawSetColor(Color(180, 0, 0, 255));
-
-		int nYPos = YRES(396);
-		int nXPos = GetWide() * 0.5 - YRES(80);
-		int nStride = YRES(175);
-		int nTall = YRES(35);
-		int nWide = YRES(3);
-
-		int nX = RemapVal(m_flTunerPos + (m_flTunerWobble * 0.01f), 0.f, 1.f, (float)nXPos, (float)(nXPos + nStride)) - (nWide * 0.5f);
-
-		surface()->DrawFilledRect(nX, nYPos, nX + nWide, nYPos + nTall);
-	}
-	*/
 }
 
 void CSoloPanel::SetVisible(bool bVisible)
@@ -382,30 +211,19 @@ void CSoloPanel::SetVisible(bool bVisible)
 
 	if (bVisible)
 	{
-		PlaySoundEntry("CYOA.MapOpen");
+		RunScriptHook("solopanel_opened", NULL);
 		// If they closed and re-opened the quest map, make sure the mouse
 		// block is not visible.
 		SetControlVisible("MouseBlocker", false);
 
 		m_pQuestNodeViewPanel->SetVisible(false);
 
-		if (true)
-		{
-			m_pIntroPanel->SetVisible(false);
-			g_pClientMode->GetViewportAnimationController()->StartAnimationSequence(this, "QuestMap_Start", false);
-			g_pClientMode->GetViewportAnimationController()->StartAnimationSequence(this, m_bMapLoaded && true ? "QuestMap_MapLoaded" : "QuestMap_LoadingLoop", false);
-		}
-		else
-		{
-			g_pClientMode->GetViewportAnimationController()->StartAnimationSequence(this, "QuestMap_Start", false);
-			m_pIntroPanel->SetVisible(true);
-			m_pIntroPanel->SetControlVisible("IntroStage0", true);
-			m_bViewingTutorial = true;
-			m_pVideoPanel->BeginPlayback("media/test.vid");
-		}
+		g_pClientMode->GetViewportAnimationController()->StartAnimationSequence(this, "QuestMap_Start", false);
+		g_pClientMode->GetViewportAnimationController()->StartAnimationSequence(this, m_bMapLoaded && true ? "QuestMap_MapLoaded" : "QuestMap_LoadingLoop", false);
 	}
 	else
 	{
+		RunScriptHook("solopanel_closed", NULL);
 		ChangeScreenDisplay(SCREEN_STORE);
 	}
 }
@@ -423,194 +241,10 @@ void CSoloPanel::QueueTurnInAnims()
 
 void CSoloPanel::FireGameEvent(IGameEvent* event)
 {
-	if (FStrEq(event->GetName(), "items_acknowledged"))
-	{
-		if (m_bAwaitingItemConfirm)
-		{
-			m_bAwaitingItemConfirm = false;
-			EQuestTurnInState eLastQueued = TURN_IN_BEGIN;
-			float flTimeAccum = 0.f;
-			auto lambdaQueue = [&](EQuestTurnInState eState, float flTimeAfterLastStep)
-			{
-				flTimeAccum += flTimeAfterLastStep;
-				Assert(eState > eLastQueued); // Sanity
-				PostMessage(this, new KeyValues("FireTurnInStateEvent", "state", eState), flTimeAccum);
-				eLastQueued = eState;
-			};
-
-			auto& msgReport = GetQuestMapController().GetMostRecentProgressReport();
-
-			lambdaQueue(TURN_IN_HIDE_NODE_VIEW, 0.5f);
-			lambdaQueue(TURN_IN_SHOW_NODE_UNLOCKS, 0.5f);
-			if (msgReport.reward_credits_earned() > 0)
-			{
-				lambdaQueue(TURN_IN_SHOW_GLOBAL_BLOOD_MONEY, 1.f);
-			}
-			lambdaQueue(TURN_IN_SHOW_GLOBAL_STARS, 1.f);
-			lambdaQueue(TURN_IN_COMPLETE, 0.f);
-		}
-	}
-	else if (FStrEq(event->GetName(), "quest_response"))
-	{
-		if (event->GetInt("request") != k_EMsgGCQuestNodeTurnIn)
-			return;
-
-		m_bTurnInSuccess = event->GetBool("success");
-	}
-	else if (FStrEq(event->GetName(), "quest_request"))
-	{
-		if (event->GetInt("request") != k_EMsgGCQuestNodeTurnIn)
-			return;
-
-		// In 5 seconds, do whatever anims we need to do.  We'll (hopefully) hear back about
-		// success within that time.  If we don't, we assume failure.
-		PostMessage(this, new KeyValues("QueueTurnInAnims"), k_flQuestTurnInTime);
-		PostMessage(this, new KeyValues("FireTurnInStateEvent", "state", TURN_IN_BEGIN), 0.0f);
-		m_bTurnInSuccess = false;
-	}
-	else if (FStrEq(event->GetName(), "quest_map_data_changed"))
-	{
-		UpdateControls();
-		return;
-	}
-	else if (FStrEq(event->GetName(), "proto_def_changed") && (event->GetInt("type") == DEF_TYPE_QUEST_MAP_NODE))
-	{
-		bool bVisible = IsVisible();
-		UpdateControls();
-		SetVisible(bVisible);
-	}
-	else if (FStrEq(event->GetName(), "gc_new_session"))
-	{
-		UpdateControls();
-		return;
-	}
-	else if (FStrEq(event->GetName(), "gameui_hidden"))
+	if (FStrEq(event->GetName(), "gameui_hidden"))
 	{
 		// When the gameui hides, we need to hide so we're not still open if the gameui re-opens
 		SetVisible(false);
-	}
-	else if (FStrEq(event->GetName(), "quest_turn_in_state"))
-	{
-		EQuestTurnInState eState = (EQuestTurnInState)event->GetInt("state");
-		auto& msgReport = GetQuestMapController().GetMostRecentProgressReport();
-
-		auto lambdaShowGainsOverPanel = [&](const char* pszPanelName,
-			const char* pszToken,
-			int nGain)
-		{
-			Panel* pPanel = m_pMapAreaPanel->FindChildByName(pszPanelName, true);
-			if (pPanel && nGain)
-			{
-				int nX, nY;
-				pPanel->GetPos(nX, nY);
-				pPanel->ParentLocalToScreen(nX, nY);
-				CreateScrollingIndicator(nX,
-					nY - YRES(20),
-					LocalizeNumberWithToken(pszToken, nGain),
-					"MatchMaking.XPChime",
-					0.f,
-					0,
-					-25,
-					true);
-			}
-		};
-
-		switch (eState)
-		{
-		case TURN_IN_BEGIN:
-		{
-			// We don't want to allow any input while we're doing turn-in animations
-			SetControlVisible("MouseBlocker", true);
-			break;
-		}
-
-		case TURN_IN_SHOW_SUCCESS:
-		{
-			PlaySoundEntry("Quest.TurnInAcceptedLight");
-			m_pTurnInCompletePopup->SetDialogVariable("result", g_pVGuiLocalize->Find("#TF_QuestView_TurnInSuccess"));
-			m_pTurnInCompletePopup->SetVisible(true);
-			break;
-		}
-
-		case TURN_IN_HIDE_SUCCESS:
-		{
-			m_pTurnInCompletePopup->SetVisible(false);
-			break;
-		}
-
-		case TURN_IN_SHOW_STARS_EARNED:
-		{
-			// This is a hack.  There's a few objective panels that are tying to play this sound
-			// so it's stacking and sounding bad.  This is way easier than .res file plumbing
-			// a setting.
-			float flDelay = 0.f;
-			auto lambdaPlayChime = [&]()
-			{
-				PostMessage(this, new KeyValues("PlaySoundEntry", "sound", "MatchMaking.XPChime"), flDelay);
-				flDelay += 0.3f;
-			};
-
-			if (msgReport.star_0_earned()) lambdaPlayChime();
-			if (msgReport.star_1_earned()) lambdaPlayChime();
-			if (msgReport.star_2_earned()) lambdaPlayChime();
-			break;
-		}
-
-		case TURN_IN_SHOW_BLOOD_MONEY_EARNED:
-		{
-			break;
-		}
-
-		case TURN_IN_SHOW_ITEM_PICKUP_SCREEN:
-		{
-			m_bAwaitingItemConfirm = true;
-			InventoryManager()->ShowItemsPickedUp(true, false);
-			PlaySoundEntry("plng_contract_complete_give_item_allclass");
-			break;
-		}
-
-		case TURN_IN_SHOW_FAILURE:
-		{
-			m_pTurnInCompletePopup->SetDialogVariable("result", g_pVGuiLocalize->Find("#TF_QuestView_TurnInFailure"));
-			m_pTurnInCompletePopup->SetVisible(true);
-			break;
-		}
-
-		case TURN_IN_HIDE_FAILURE:
-		{
-			m_pTurnInCompletePopup->SetVisible(false);
-			break;
-		}
-
-		case TURN_IN_SHOW_GLOBAL_BLOOD_MONEY:
-		{
-			lambdaShowGainsOverPanel("RewardCreditsLabel", "#TF_QuestMap_BloodMoneyGained", msgReport.reward_credits_earned());
-			break;
-		}
-
-		case TURN_IN_SHOW_GLOBAL_STARS:
-		{
-			int nNumStarsEarned = 0;
-			if (msgReport.star_0_earned()) nNumStarsEarned += 1;
-			if (msgReport.star_1_earned()) nNumStarsEarned += 1;
-			if (msgReport.star_2_earned()) nNumStarsEarned += 1;
-			Assert(nNumStarsEarned > 0);
-
-			lambdaShowGainsOverPanel("AvailableStarsLabel", "#TF_QuestMap_StarsGained", nNumStarsEarned);
-			break;
-		}
-
-		case TURN_IN_COMPLETE:
-		{
-			SetControlVisible("MouseBlocker", false);
-			break;
-		}
-
-		// Nothing to do for these
-		case TURN_IN_HIDE_NODE_VIEW:
-		case TURN_IN_SHOW_NODE_UNLOCKS:
-			break;
-		};
 	}
 }
 
@@ -743,25 +377,6 @@ void CSoloPanel::UpdateControls(bool bIgnoreInvalidLayout)
 	if (!bIgnoreInvalidLayout && IsLayoutInvalid())
 		return;
 
-	if (!steamapicontext ||
-		!steamapicontext->SteamUser())
-	{
-		return;
-	}
-
-	static ConVarRef mat_dxlevel("mat_dxlevel");
-	if (mat_dxlevel.GetInt() < 90)
-	{
-		m_pIntroPanel->SetControlVisible("StaticBG", false);
-		m_pMapAreaPanel->SetControlVisible("StaticOverlay", false);
-	}
-
-	//if ( !GTFGCClientSystem()->BConnectedtoGC() )
-	//	return;
-
-	// Maybe they activated a pass?
-	UpdatePassAdPanel();
-
 	//
 	// Create region panels for this map
 	//
@@ -893,20 +508,55 @@ void CSoloPanel::GoToCurrentQuest()
 	PostMessage(pRegionPanel, new KeyValues("NodeSelected", "node", pNode->GetNodeDefinition()->GetDefIndex()), 0.5f);
 }
 
-//
-// Debugging functions
-//
+// ----------------------------------------------------------------------------
+
+void CSoloPanel::ForceOpen()
+{
+	if (engine->IsInGame())
+	{
+		engine->ClientCmd_Unrestricted("gameui_activate");
+	}
+	GetSoloPanel()->SetVisible(true);
+	GetSoloPanel()->GoToCurrentQuest();
+}
+void CSoloPanel::ForceClose()
+{
+	if (GetSoloPanel()->IsVisible())
+	{
+		if (engine->IsInGame())
+		{
+			engine->ClientCmd_Unrestricted("gameui_hide");
+		}
+		GetSoloPanel()->SetVisible(false);
+	}
+}
+void CSoloPanel::ForceUpdateControls()
+{
+	UpdateControls();
+}
+
+BEGIN_SCRIPTDESC_ROOT(CSoloPanel, SCRIPT_SINGLETON "Used to access the main solo interface")
+	DEFINE_SCRIPTFUNC(ForceOpen, "")
+	DEFINE_SCRIPTFUNC(ForceClose, "")
+	DEFINE_SCRIPTFUNC(ForceUpdateControls, "")
+END_SCRIPTDESC();
 
 CON_COMMAND(tfsolo_show_menu, "Show the solo menu")
 {
 	if (GetSoloPanel()->IsVisible())
 	{
-		engine->ClientCmd_Unrestricted("gameui_hide");
+		if (engine->IsInGame())
+		{
+			engine->ClientCmd_Unrestricted("gameui_hide");
+		}
 		GetSoloPanel()->SetVisible(false);
 	}
 	else
 	{
-		engine->ClientCmd_Unrestricted("gameui_activate");
+		if (engine->IsInGame())
+		{
+			engine->ClientCmd_Unrestricted("gameui_activate");
+		}
 		GetSoloPanel()->SetVisible(true);
 		GetSoloPanel()->GoToCurrentQuest();
 	}

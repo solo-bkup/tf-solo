@@ -61,6 +61,7 @@
 
 #include "econ_paintkit.h"
 #include "ienginevgui.h"
+#include "vscript_client.h"
 
 
 #include "c_tf_gamestats.h"
@@ -1152,6 +1153,8 @@ void CHudMainMenuOverride::OnUpdateMenu( void )
 
 void CHudMainMenuOverride::OnMainMenuStabilized()
 {
+	g_pScriptVM->RegisterInstance(this, "MainMenu");
+	g_pScriptVM->RegisterInstance(GetMMDashboard(), "MainDashboard");
 	IGameEvent *event = gameeventmanager->CreateEvent( "mainmenu_stabilized" );
 	if ( event )
 	{
@@ -2464,3 +2467,7 @@ void CMainMenuToolTip::SetText(const char *pszText)
 //-----------------------------------------------------------------------------
 // Purpose: Reload the .res file
 //-----------------------------------------------------------------------------
+
+BEGIN_SCRIPTDESC_ROOT(CHudMainMenuOverride, SCRIPT_SINGLETON "Used to access the main menu interface")
+	DEFINE_SCRIPTFUNC(Reset, "")
+END_SCRIPTDESC();
