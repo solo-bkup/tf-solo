@@ -221,11 +221,20 @@ getroottable()[TFSOLO.VguiCutsceneEventTag] <- {
 		if (TFSOLO.Screens.Active != TFSOLO.Screens.Cutscene) return;
 		if (params.command == "cts_continue")
 		{
-			printl("dialgue progress")
+			printl("dialogue progress")
+			if (TFSOLO.Cutscenes.Active != null)
+			{
+				TFSOLO.Cutscenes.Active.Progress()
+			}
 		}
 		else if (params.command == "cts_skip")
 		{
-			printl("dialgue skip")
+			printl("dialogue skip")
+			TFSOLO.PlayTransitionScreenEffects()
+			if (TFSOLO.Cutscenes.Active != null)
+			{
+				TFSOLO.Cutscenes.Active.Skip()
+			}
 		}
 	}
 }

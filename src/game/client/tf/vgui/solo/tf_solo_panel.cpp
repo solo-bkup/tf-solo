@@ -187,9 +187,7 @@ void CSoloPanel::SetVisible(bool bVisible)
 			g_pScriptVM->RegisterInstance(this, "SoloPanel");
 		}
 		m_pQuestNodeViewPanel->SetVisible(false);
-		PlaySoundEntry("CYOA.MapOpen");
-		g_pClientMode->GetViewportAnimationController()->StartAnimationSequence(this, "SoloMenu_Start", false);
-		g_pClientMode->GetViewportAnimationController()->StartAnimationSequence(this, m_bMapLoaded && true ? "SoloMenu_MapLoaded" : "SoloMenu_LoadingLoop", false);
+		RunScriptHook("solopanel_open", NULL);
 	}
 	else
 	{
@@ -201,7 +199,6 @@ void CSoloPanel::SetVisible(bool bVisible)
 void CSoloPanel::PlayTransitionScreenEffects()
 {
 	PlaySoundEntry("CYOA.StaticFade");
-	g_pClientMode->GetViewportAnimationController()->StartAnimationSequence(this, "SoloMenu_StaticFadeOut", false);
 }
 
 void CSoloPanel::QueueTurnInAnims()
@@ -278,12 +275,6 @@ void CSoloPanel::UpdateControls(bool bIgnoreInvalidLayout)
 	if (!bIgnoreInvalidLayout && IsLayoutInvalid())
 		return;
 
-	// Just got the map loaded.  Transition in
-	if (!m_bMapLoaded && IsVisible())
-	{
-		g_pClientMode->GetViewportAnimationController()->StartAnimationSequence(this, "SoloMenu_MapLoaded", false);
-	}
-
 	m_bMapLoaded = true;
 
 	InvalidateLayout();
@@ -346,7 +337,6 @@ DEFINE_SCRIPTFUNC(CreatePanel, "")
 DEFINE_SCRIPTFUNC(CreatePanelRoot, "")
 DEFINE_SCRIPTFUNC(DeleteSubPanel, "")
 DEFINE_SCRIPTFUNC(ClearAllScriptPanels, "")
-DEFINE_SCRIPTFUNC(PlayTransitionScreenEffects, "")
 DEFINE_SCRIPTFUNC(RunAnimationScript, "")
 
 END_SCRIPTDESC();
@@ -405,7 +395,7 @@ BEGIN_SCRIPTDESC(CExScrollingEditablePanel, Panel, "")
 END_SCRIPTDESC();
 BEGIN_SCRIPTDESC(ScrollBar, Panel, "")
 END_SCRIPTDESC();
-BEGIN_SCRIPTDESC(CExLabel, Panel, "")
+BEGIN_SCRIPTDESC(CExLabel, Label, "")
 END_SCRIPTDESC();
 BEGIN_SCRIPTDESC(CExImageButton, Panel, "")
 END_SCRIPTDESC();
@@ -433,6 +423,7 @@ END_SCRIPTDESC();
 BEGIN_SCRIPTDESC(CEconItemDetailsRichText, Panel, "")
 END_SCRIPTDESC();
 BEGIN_SCRIPTDESC(Label, Panel, "")
+DEFINE_SCRIPTFUNC(SetTextConst, "")
 END_SCRIPTDESC();
 BEGIN_SCRIPTDESC(Button, Panel, "")
 END_SCRIPTDESC();

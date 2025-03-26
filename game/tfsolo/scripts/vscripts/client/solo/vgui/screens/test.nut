@@ -51,8 +51,9 @@ getroottable()[TFSOLO.VguiTestEventTag] <- {
 		if (TFSOLO.Screens.Active != TFSOLO.Screens.Test) return;
 		if (params.command == "but_the_test")
 		{
-			SoloPanel.PlayTransitionScreenEffects()
-			TFSOLO.Screens.TeamSelect.Enter()
+			TFSOLO.PlayTransitionScreenEffects()
+			//TFSOLO.Screens.TeamSelect.Enter()
+			TFSOLO.Cutscenes.Test.Enter()
 		}
 	}
 }

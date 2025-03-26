@@ -14,7 +14,7 @@ getroottable()[TFSOLO.Screens.EventTag] <- {
 				{
 					SendToConsole("stopsound")
 				}
-				TFSOLO.Screens.TeamSelect.Enter()
+				TFSOLO.Screens.Test.Enter()
 			}
 		}
 	}
