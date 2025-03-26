@@ -1,26 +1,18 @@
-#ifndef TF_SOLO_PANEL_H
-#define TF_SOLO_PANEL_H
-
-
 #include "vgui_controls/EditablePanel.h"
-#include "local_steam_shared_object_listener.h"
-#include "tf_proto_def_messages.h"
 #include "tf_controls.h"
-#include "item_ad_panel.h"
-#include "tf_solo_panel.h"
-#include "vgui/tf_quest_map_panel.h"
+#include "vscript_client.h"
+#include "vscript_utils.h"
 
 using namespace vgui;
-using namespace GCSDK;
 
 class CItemModelPanel;
 class CItemModelPanelToolTip;
-class CQuestNodeViewPanel;
-class CQuestMapRegionPanel;
+class CSoloNodeViewPanel;
+class CSoloRegionPanel;
 class CTFVideoPanel;
 class CExButton;
-class CQuestObjectiveTooltip;
-class CQuestObjectivePanel;
+class CSoloObjectiveTooltip;
+class CSoloObjectivePanel;
 
 namespace vgui
 {
@@ -32,7 +24,6 @@ namespace vgui
 //-----------------------------------------------------------------------------
 class CSoloPanel : public EditablePanel
 	, public CGameEventListener
-	, public CLocalSteamSharedObjectListener
 {
 	DECLARE_CLASS_SIMPLE(CSoloPanel, EditablePanel);
 public:
@@ -58,19 +49,19 @@ public:
 	virtual void OnCursorEntered();
 	virtual void OnCursorExited();
 
-	const CQuestMapRegionPanel* GetRegionPanel(uint32 nRegionDefIndex) const;
+	const CSoloRegionPanel* GetRegionPanel(uint32 nRegionDefIndex) const;
 
 	CTFTextToolTip* GetTextTooltip() const { return m_pToolTip; }
 
-	virtual void SOCreated(const CSteamID& steamIDOwner, const GCSDK::CSharedObject* pObject, GCSDK::ESOCacheEvent eEvent) OVERRIDE;
-
 	void GoToCurrentQuest();
+	void ClearAllScriptPanels();
 	void ForceOpen();
 	void ForceClose();
 	void ForceUpdateControls();
-private:
+	virtual HSCRIPT CreatePanel(HSCRIPT hTable);
+
 	void MapStateChangeSequence();
-	void SetRegion(const CQuestMapRegion* pRegion, bool bZoomIn);
+	//void SetRegion(const CQuestMapRegion* pRegion, bool bZoomIn);
 	void UpdateIntroState();
 	void UpdateControls(bool bIgnoreInvalidLayout = false);
 	void UpdateRegionVisibility();
@@ -85,10 +76,11 @@ private:
 		SCREEN_STORE,
 	};
 	void ChangeScreenDisplay(EScreenDisplay eScreen);
-
-	CQuestObjectiveTooltip* m_pQuestObjectiveTooltip;
-	CQuestObjectivePanel* m_pQuestObjectivePanel;
-	CQuestNodeViewPanel* m_pQuestNodeViewPanel;
+private:
+	
+	CSoloObjectiveTooltip* m_pQuestObjectiveTooltip;
+	CSoloObjectivePanel* m_pQuestObjectivePanel;
+	CSoloNodeViewPanel* m_pQuestNodeViewPanel;
 	CItemModelPanel* m_pMouseOverItemPanel;
 	CItemModelPanelToolTip* m_pMouseOverTooltip; // The map needs to own this so things will be sorted correctly
 	CTFTextToolTip* m_pToolTip;
@@ -97,8 +89,9 @@ private:
 	vgui::EditablePanel* m_pMapAreaPanel;
 	vgui::EditablePanel* m_pTurnInCompletePopup;
 
-	CUtlMap< uint32, CQuestMapRegionPanel* > m_mapRegions;
-	CMsgProtoDefID	m_currentRegion;
+	CUtlMap< uint32, CSoloRegionPanel* > m_mapRegions;
+	CUtlMap< HSCRIPT, Panel* > m_scriptPanels;
+	//CMsgProtoDefID	m_currentRegion;
 
 	bool m_bTurnInSuccess = false;
 	bool m_bAwaitingItemConfirm = false;
@@ -108,5 +101,3 @@ private:
 };
 
 CSoloPanel* GetSoloPanel();
-
-#endif //TF_SOLO_PANEL_H

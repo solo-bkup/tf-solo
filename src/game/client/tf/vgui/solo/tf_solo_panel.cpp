@@ -1,29 +1,19 @@
 #include "cbase.h"
-#include "tf_quest_map_panel.h"
-#include "tf_quest_map_node_panel.h"
-#include "tf_quest_map.h"
+#include "tf_solo_node_panel.h"
 #include <vgui/IInput.h>
-#include "tf_gc_client.h"
-#include "tf_quest_map_node.h"
-#include "tf_quest_map_utils.h"
-#include "tf_quest_map_controller.h"
-#include "tf_quest_map_editor_panel.h"
-#include "tf_quest_map_region_panel.h"
+#include "tf_solo_region_panel.h"
 #include "clientmode_tf.h"
 #include <vgui_controls/AnimationController.h>
 #include "item_model_panel.h"
-#include "tf_quest_map_node_view_panel.h"
-#include "econ_item_inventory.h"
+#include "tf_solo_node_view_panel.h"
 #include "tf_vgui_video.h"
-#include "econ/econ_ui.h"
-#include "store/store_panel.h"
-#include "tf_item_inventory.h"
 #include "tf_matchmaking_dashboard.h"
 #include "tf_hud_mainmenuoverride.h"
-#include "c_tf_player.h"
 #include "vguicenterprint.h"
 #include "tf_solo_panel.h"
+#include "tf_playermodelpanel.h"
 #include "vscript_client.h"
+#include "vscript_utils.h"
 
 class CSoloTooltip : public CTFTextToolTip
 {
@@ -60,7 +50,7 @@ CSoloPanel::CSoloPanel(Panel* pParent, const char* pszPanelName)
 	// So we can paint the radio needle *on top* of our children
 	SetPostChildPaintEnabled(true);
 
-	m_currentRegion.set_type(DEF_TYPE_QUEST_MAP_REGION);
+	//m_currentRegion.set_type(DEF_TYPE_QUEST_MAP_REGION);
 
 	if (g_pVGuiLocalize)
 	{
@@ -89,11 +79,11 @@ CSoloPanel::CSoloPanel(Panel* pParent, const char* pszPanelName)
 	m_pTurnInCompletePopup = new EditablePanel(m_pMapAreaPanel, "TurnInCompletePopup");
 
 	// Quest objective tooltip
-	m_pQuestObjectiveTooltip = new CQuestObjectiveTooltip(m_pMapAreaPanel, "ObjectiveTooltip");
-	m_pQuestObjectivePanel = new CQuestObjectivePanel(m_pMapAreaPanel, "QuestObjective");
+	m_pQuestObjectiveTooltip = new CSoloObjectiveTooltip(m_pMapAreaPanel, "ObjectiveTooltip");
+	m_pQuestObjectivePanel = new CSoloObjectivePanel(m_pMapAreaPanel, "QuestObjective");
 	m_pQuestObjectiveTooltip->SetObjectivePanel(m_pQuestObjectivePanel);
 	// Node view
-	m_pQuestNodeViewPanel = new CQuestNodeViewPanel(m_pMapAreaPanel, "SelectedNodeInfoPanel");
+	m_pQuestNodeViewPanel = new CSoloNodeViewPanel(m_pMapAreaPanel, "SelectedNodeInfoPanel");
 	m_pQuestNodeViewPanel->SetItemModelPanelTooltip(m_pMouseOverTooltip);
 	m_pQuestNodeViewPanel->SetTextTooltip(m_pToolTip);
 	m_pQuestNodeViewPanel->SetObjectiveTooltip(m_pQuestObjectiveTooltip);
@@ -127,6 +117,20 @@ void CSoloPanel::ApplySettings(KeyValues* inResourceData)
 
 void CSoloPanel::OnCommand(const char* pCommand)
 {
+	if (ScriptHookEnabled("solopanel_command"))
+	{
+		IScriptVM* pVM = g_pScriptVM;
+		ScriptVariant_t varTable;
+		pVM->CreateTable(varTable);
+		pVM->SetValue(varTable, "command", pCommand);
+		pVM->SetValue(varTable, "early_out", false);
+		if (RunScriptHook("solopanel_command", varTable))
+		{
+			if (pVM->Get<bool>(varTable, "early_out"))
+				return;
+		}
+	}
+
 	if (FStrEq("close", pCommand))
 	{
 		SetVisible(false);
@@ -214,7 +218,7 @@ void CSoloPanel::SetVisible(bool bVisible)
 		RunScriptHook("solopanel_opened", NULL);
 		// If they closed and re-opened the quest map, make sure the mouse
 		// block is not visible.
-		SetControlVisible("MouseBlocker", false);
+		//SetControlVisible("MouseBlocker", false);
 
 		m_pQuestNodeViewPanel->SetVisible(false);
 
@@ -248,17 +252,18 @@ void CSoloPanel::FireGameEvent(IGameEvent* event)
 	}
 }
 
+/*
 void CSoloPanel::SetRegion(const CQuestMapRegion* pRegion, bool bZoomIn)
 {
-	CQuestMapRegionPanel* pCurrentRegionPanel = m_mapRegions[m_mapRegions.Find(m_currentRegion.defindex())];
-	CQuestMapRegionPanel* pNewRegionPanel = m_mapRegions[m_mapRegions.Find(pRegion->GetDefIndex())];
+	CSoloRegionPanel* pCurrentRegionPanel = m_mapRegions[m_mapRegions.Find(m_currentRegion.defindex())];
+	CSoloRegionPanel* pNewRegionPanel = m_mapRegions[m_mapRegions.Find(pRegion->GetDefIndex())];
 	Assert(pCurrentRegionPanel && pNewRegionPanel);
 	if (!pCurrentRegionPanel || !pNewRegionPanel)
 		return;
 
 	float flLinkX = 0.5, flLinkY = 0.5;
 
-	const CQuestMapRegionPanel* pLinkContainingPanel = bZoomIn ? pCurrentRegionPanel : pNewRegionPanel;
+	const CSoloRegionPanel* pLinkContainingPanel = bZoomIn ? pCurrentRegionPanel : pNewRegionPanel;
 	uint32 nLinkDefindex = bZoomIn ? pRegion->GetDefIndex() : m_currentRegion.defindex();
 	const EditablePanel* pRegionLink = pLinkContainingPanel->GetRegionLinkPanel(nLinkDefindex);
 
@@ -286,6 +291,7 @@ void CSoloPanel::SetRegion(const CQuestMapRegion* pRegion, bool bZoomIn)
 
 	UpdatePassAdPanel();
 }
+*/
 
 void CSoloPanel::UpdatePassAdPanel()
 {
@@ -294,6 +300,7 @@ void CSoloPanel::UpdatePassAdPanel()
 
 void CSoloPanel::RegionSelected(KeyValues* pParams)
 {
+	/*
 	uint32 nRegionDefindex = pParams->GetInt("defindex");
 	const CQuestMapRegion* pRegion = GetProtoScriptObjDefManager()->GetTypedDefinition< CQuestMapRegion >(nRegionDefindex);
 	if (!pRegion)
@@ -303,11 +310,13 @@ void CSoloPanel::RegionSelected(KeyValues* pParams)
 	}
 
 	SetRegion(pRegion, true);
+	*/
 }
 
 void CSoloPanel::RegionBackout()
 {
 	// Pop the top!
+	/*
 	const CQuestMapRegion* pRegion = GetProtoScriptObjDefManager()->GetTypedDefinition< CQuestMapRegion >(m_currentRegion.defindex());
 	if (!pRegion)
 		return;
@@ -317,11 +326,12 @@ void CSoloPanel::RegionBackout()
 		return;
 
 	SetRegion(pParentRegion, false);
+	*/
 }
 
 void CSoloPanel::DisableMouseBlocker()
 {
-	SetControlVisible("MouseBlocker", false);
+	//SetControlVisible("MouseBlocker", false);
 }
 
 
@@ -342,12 +352,12 @@ void CSoloPanel::OnPlaySoundEntry(KeyValues* pParams)
 
 void CSoloPanel::MapStateChangeSequence()
 {
-	auto pRegion = GetRegionPanel(m_currentRegion.defindex());
-	if (!pRegion)
-		return;
+	//auto pRegion = GetRegionPanel(m_currentRegion.defindex());
+	//if (!pRegion)
+	//	return;
 
-	PostMessage(pRegion->GetVPanel(), new KeyValues("CloseNodeView"), 0.5f);
-	PostMessage(pRegion->GetVPanel(), new KeyValues("ShowNodeUnlockChange"), 1.f);
+	//PostMessage(pRegion->GetVPanel(), new KeyValues("CloseNodeView"), 0.5f);
+	//PostMessage(pRegion->GetVPanel(), new KeyValues("ShowNodeUnlockChange"), 1.f);
 }
 
 void CSoloPanel::OnCursorEntered()
@@ -360,7 +370,7 @@ void CSoloPanel::OnCursorExited()
 	UpdateIntroState();
 }
 
-const CQuestMapRegionPanel* CSoloPanel::GetRegionPanel(uint32 nRegionDefIndex) const
+const CSoloRegionPanel* CSoloPanel::GetRegionPanel(uint32 nRegionDefIndex) const
 {
 	auto idx = m_mapRegions.Find(nRegionDefIndex);
 	if (idx == m_mapRegions.InvalidIndex())
@@ -380,6 +390,7 @@ void CSoloPanel::UpdateControls(bool bIgnoreInvalidLayout)
 	//
 	// Create region panels for this map
 	//
+	/*
 	const DefinitionMap_t& mapRegions = GetProtoScriptObjDefManager()->GetDefinitionMapForType(DEF_TYPE_QUEST_MAP_REGION);
 	FOR_EACH_MAP_FAST(mapRegions, i)
 	{
@@ -394,10 +405,12 @@ void CSoloPanel::UpdateControls(bool bIgnoreInvalidLayout)
 			m_mapRegions.Insert(pRegion->GetDefIndex(), pRegionPanel);
 		}
 	}
+	*/
 
 
 	// TODO: Setup starting region.  Flag in the region?  Where your active contract is?
 	// Now that we have the map def, we can set the starting region
+	/*
 	if (!m_currentRegion.has_defindex())
 	{
 		const CQuestMapRegion* pStartingRegion = GetProtoScriptObjDefManager()->GetTypedDefinition< CQuestMapRegion >(0);
@@ -408,7 +421,7 @@ void CSoloPanel::UpdateControls(bool bIgnoreInvalidLayout)
 		m_mapRegions[pStartingRegion->GetDefIndex()]->StartZoomTo(0.5f, 0.5f, true);
 		m_currentRegion.set_defindex(pStartingRegion->GetDefIndex());
 	}
-
+	*/
 
 	UpdateRegionVisibility();
 
@@ -462,50 +475,45 @@ void CSoloPanel::UpdateStarsGlobalStatus()
 void CSoloPanel::UpdateRegionVisibility()
 {
 	// Make the right region show
-	FOR_EACH_MAP(m_mapRegions, i)
-	{
-		uint32 nKey = m_mapRegions.Key(i);
-		m_mapRegions[i]->SetVisible(nKey == m_currentRegion.defindex() && m_eScreenDisplay == SCREEN_MAP);
-	}
+	//FOR_EACH_MAP(m_mapRegions, i)
+	//{
+	//	uint32 nKey = m_mapRegions.Key(i);
+	//	m_mapRegions[i]->SetVisible(nKey == m_currentRegion.defindex() && m_eScreenDisplay == SCREEN_MAP);
+	//}
 
 	UpdateStarsGlobalStatus();
-}
-
-void CSoloPanel::SOCreated(const CSteamID& steamIDOwner, const GCSDK::CSharedObject* pObject, GCSDK::ESOCacheEvent eEvent)
-{
-	
 }
 
 void CSoloPanel::GoToCurrentQuest()
 {
 	MakeReadyForUse();
 
-	auto* pActiveQuest = GetQuestMapHelper().GetActiveQuest();
-	if (!pActiveQuest)
-		return;
+	//auto* pActiveQuest = GetQuestMapHelper().GetActiveQuest();
+	//if (!pActiveQuest)
+	//	return;
 
-	auto* pNode = GetQuestMapHelper().GetQuestMapNodeByID(pActiveQuest->GetSourceNodeID());
-	if (!pNode)
-		return;
+	//auto* pNode = GetQuestMapHelper().GetQuestMapNodeByID(pActiveQuest->GetSourceNodeID());
+	//if (!pNode)
+	//	return;
 
-	auto pRegionDef = GetProtoScriptObjDefManager()->GetTypedDefinition< CQuestMapRegion  >(pNode->GetNodeDefinition()->GetRegionDefIndex());
-	if (!pRegionDef)
-		return;
+	//auto pRegionDef = GetProtoScriptObjDefManager()->GetTypedDefinition< CQuestMapRegion  >(pNode->GetNodeDefinition()->GetRegionDefIndex());
+	//if (!pRegionDef)
+	//	return;
 
-	auto idx = m_mapRegions.Find(pRegionDef->GetDefIndex());
-	if (idx == m_mapRegions.InvalidIndex())
-		return;
+	//auto idx = m_mapRegions.Find(pRegionDef->GetDefIndex());
+	//if (idx == m_mapRegions.InvalidIndex())
+	//	return;
 
-	auto* pRegionPanel = m_mapRegions[idx];
-	if (!pRegionPanel)
-		return;
+	//auto* pRegionPanel = m_mapRegions[idx];
+	//if (!pRegionPanel)
+	//	return;
 
 	// Go to the region with the node
-	SetRegion(pRegionDef, true);
+	//SetRegion(pRegionDef, true);
 
 	// Delay the command to select the node a bit because we the UI needs to do the transitions first, or else
 	// the arror from the node view panel will point to the wrong place
-	PostMessage(pRegionPanel, new KeyValues("NodeSelected", "node", pNode->GetNodeDefinition()->GetDefIndex()), 0.5f);
+	//PostMessage(pRegionPanel, new KeyValues("NodeSelected", "node", pNode->GetNodeDefinition()->GetDefIndex()), 0.5f);
 }
 
 // ----------------------------------------------------------------------------
@@ -536,10 +544,216 @@ void CSoloPanel::ForceUpdateControls()
 }
 
 BEGIN_SCRIPTDESC_ROOT(CSoloPanel, SCRIPT_SINGLETON "Used to access the main solo interface")
-	DEFINE_SCRIPTFUNC(ForceOpen, "")
-	DEFINE_SCRIPTFUNC(ForceClose, "")
-	DEFINE_SCRIPTFUNC(ForceUpdateControls, "")
+
+DEFINE_SCRIPTFUNC(ForceOpen, "")
+DEFINE_SCRIPTFUNC(ForceClose, "")
+DEFINE_SCRIPTFUNC(ForceUpdateControls, "")
+DEFINE_SCRIPTFUNC(CreatePanel, "")
+DEFINE_SCRIPTFUNC(ClearAllScriptPanels, "")
+DEFINE_SCRIPTFUNC(PlayTransitionScreenEffects, "")
+
 END_SCRIPTDESC();
+
+BEGIN_SCRIPTDESC_ROOT(Panel, "Used to access a generic panel")
+
+DEFINE_SCRIPTFUNC(SetName, "")
+DEFINE_SCRIPTFUNC(GetName, "")
+DEFINE_SCRIPTFUNC(GetClassName, "")
+DEFINE_SCRIPTFUNC(MakeReadyForUse, "")
+DEFINE_SCRIPTFUNC(SetPos, "")
+//DEFINE_SCRIPTFUNC(GetPos, "")
+DEFINE_SCRIPTFUNC(GetXPos, "")
+DEFINE_SCRIPTFUNC(GetYPos, "")
+DEFINE_SCRIPTFUNC(SetSize, "")
+//DEFINE_SCRIPTFUNC(GetSize, "")
+DEFINE_SCRIPTFUNC(SetBounds, "")
+//DEFINE_SCRIPTFUNC(GetBounds, "")
+DEFINE_SCRIPTFUNC(GetWide, "")
+DEFINE_SCRIPTFUNC(SetWide, "")
+DEFINE_SCRIPTFUNC(GetTall, "")
+DEFINE_SCRIPTFUNC(SetTall, "")
+DEFINE_SCRIPTFUNC(SetMinimumSize, "")
+//DEFINE_SCRIPTFUNC(GetMinimumSize, "")
+DEFINE_SCRIPTFUNC(IsBuildModeEditable, "")
+DEFINE_SCRIPTFUNC(SetBuildModeEditable, "")
+DEFINE_SCRIPTFUNC(IsBuildModeDeletable, "")
+DEFINE_SCRIPTFUNC(SetBuildModeDeletable, "")
+DEFINE_SCRIPTFUNC(IsBuildModeActive, "")
+DEFINE_SCRIPTFUNC(SetZPos, "")
+DEFINE_SCRIPTFUNC(GetZPos, "")
+DEFINE_SCRIPTFUNC(SetAlpha, "")
+DEFINE_SCRIPTFUNC(GetAlpha, "")
+DEFINE_SCRIPTFUNC(SetVisible, "")
+DEFINE_SCRIPTFUNC(IsVisible, "")
+
+DEFINE_SCRIPTFUNC(IsWithin, "")
+//DEFINE_SCRIPTFUNC(LocalToScreen, "")
+//DEFINE_SCRIPTFUNC(ScreenToLocal, "")
+//DEFINE_SCRIPTFUNC(ParentLocalToScreen, "")
+
+DEFINE_SCRIPTFUNC(GetChildCount, "")
+DEFINE_SCRIPTFUNC(FindChildIndexByName, "")
+//DEFINE_SCRIPTFUNC(CallParentFunction, "")
+
+DEFINE_SCRIPTFUNC(SetAutoDelete, "")
+DEFINE_SCRIPTFUNC(IsAutoDeleteSet, "")
+DEFINE_SCRIPTFUNC(DeletePanel, "")
+
+
+END_SCRIPTDESC();
+
+BEGIN_SCRIPTDESC(EditablePanel, Panel, "")
+END_SCRIPTDESC();
+BEGIN_SCRIPTDESC(CExScrollingEditablePanel, Panel, "")
+END_SCRIPTDESC();
+BEGIN_SCRIPTDESC(ScrollBar, Panel, "")
+END_SCRIPTDESC();
+BEGIN_SCRIPTDESC(CExLabel, Panel, "")
+END_SCRIPTDESC();
+BEGIN_SCRIPTDESC(CExImageButton, Panel, "")
+END_SCRIPTDESC();
+BEGIN_SCRIPTDESC(ImagePanel, Panel, "")
+END_SCRIPTDESC();
+BEGIN_SCRIPTDESC(CTFImagePanel, Panel, "")
+END_SCRIPTDESC();
+BEGIN_SCRIPTDESC(CBaseModelPanel, Panel, "")
+END_SCRIPTDESC();
+BEGIN_SCRIPTDESC(CItemModelPanel, Panel, "")
+END_SCRIPTDESC();
+BEGIN_SCRIPTDESC(CTFPlayerModelPanel, Panel, "")
+END_SCRIPTDESC();
+BEGIN_SCRIPTDESC(CTFVideoPanel, Panel, "")
+END_SCRIPTDESC();
+BEGIN_SCRIPTDESC(CExRichText, Panel, "")
+END_SCRIPTDESC();
+BEGIN_SCRIPTDESC(CRichTextWithScrollbarBorders, Panel, "")
+END_SCRIPTDESC();
+
+void CSoloPanel::ClearAllScriptPanels()
+{
+	FOR_EACH_MAP(m_scriptPanels, pIter)
+	{
+		g_pScriptVM->RemoveInstance(m_scriptPanels.Key(pIter));
+		m_scriptPanels[pIter]->DeletePanel();
+	}
+	m_scriptPanels.Purge();
+}
+
+HSCRIPT CSoloPanel::CreatePanel(HSCRIPT hTable)
+{
+	KeyValues* hKV = ScriptTableToKeyValues(g_pScriptVM, "PanelSettings", hTable);
+	const char* pszPanelType = hKV->GetString("ControlName", "Panel");
+	if (!pszPanelType)
+	{
+		return NULL;
+	}
+
+	Panel* pPanel;
+	ScriptClassDesc_t* pDesc = GetScriptDescForClass(Panel);
+	const char* pszControlName = hKV->GetString("fieldName", "NoName");
+	if (FStrEq(pszPanelType, "EditablePanel"))
+	{
+		EditablePanel* pBasePanel = new EditablePanel(this, pszControlName);
+		pPanel = pBasePanel;
+		pDesc = GetScriptDescForClass(EditablePanel);
+	}
+	else if (FStrEq(pszPanelType, "Panel"))
+	{
+		Panel* pBasePanel = new Panel(this, pszControlName);
+		pPanel = pBasePanel;
+	}
+	else if (FStrEq(pszPanelType, "CExScrollingEditablePanel"))
+	{
+		CExScrollingEditablePanel* pBasePanel = new CExScrollingEditablePanel(this, pszControlName);
+		pPanel = pBasePanel;
+		pDesc = GetScriptDescForClass(CExScrollingEditablePanel);
+	}
+	else if (FStrEq(pszPanelType, "ScrollBar"))
+	{
+		int isVertical = hKV->GetInt("isVertical");
+		ScrollBar* pBasePanel = new ScrollBar(this, pszControlName, isVertical != 0);
+		pPanel = pBasePanel;
+		pDesc = GetScriptDescForClass(ScrollBar);
+	}
+	else if (FStrEq(pszPanelType, "CExLabel"))
+	{
+		CExLabel* pLabel = new CExLabel(this, pszControlName, (const char*)NULL);
+		pPanel = pLabel;
+		pDesc = GetScriptDescForClass(CExLabel);
+	}
+	else if (FStrEq(pszPanelType, "CExImageButton"))
+	{
+		CExImageButton* pButton = new CExImageButton(this, pszControlName, (const char*)NULL, this);
+		pPanel = pButton;
+		pDesc = GetScriptDescForClass(CExImageButton);
+	}
+	else if (FStrEq(pszPanelType, "ImagePanel"))
+	{
+		ImagePanel* pLabel = new ImagePanel(this, pszControlName);
+		pPanel = pLabel;
+		pDesc = GetScriptDescForClass(ImagePanel);
+	}
+	else if (FStrEq(pszPanelType, "CTFImagePanel"))
+	{
+		CTFImagePanel* pLabel = new CTFImagePanel(this, pszControlName);
+		pPanel = pLabel;
+		pDesc = GetScriptDescForClass(CTFImagePanel);
+	}
+	else if (FStrEq(pszPanelType, "CBaseModelPanel"))
+	{
+		CBaseModelPanel* pButton = new CBaseModelPanel(this, pszControlName);
+		pPanel = pButton;
+		pDesc = GetScriptDescForClass(CBaseModelPanel);
+	}
+	else if (FStrEq(pszPanelType, "CItemModelPanel"))
+	{
+		CItemModelPanel* pButton = new CItemModelPanel(this, pszControlName);
+		pPanel = pButton;
+		pDesc = GetScriptDescForClass(CItemModelPanel);
+	}
+	else if (FStrEq(pszPanelType, "CTFPlayerModelPanel"))
+	{
+		CTFPlayerModelPanel* pButton = new CTFPlayerModelPanel(this, pszControlName);
+		pPanel = pButton;
+		pDesc = GetScriptDescForClass(CTFPlayerModelPanel);
+	}
+	else if (FStrEq(pszPanelType, "VideoPanel"))
+	{
+		CTFVideoPanel* pVideo = new CTFVideoPanel(this, pszControlName);
+		pPanel = pVideo;
+		pDesc = GetScriptDescForClass(CTFVideoPanel);
+	}
+	else if (FStrEq(pszPanelType, "CExRichText"))
+	{
+		CExRichText* pVideo = new CExRichText(this, pszControlName);
+		pPanel = pVideo;
+		pDesc = GetScriptDescForClass(CExRichText);
+	}
+	else if (FStrEq(pszPanelType, "CRichTextWithScrollbarBorders"))
+	{
+		CRichTextWithScrollbarBorders* pVideo = new CRichTextWithScrollbarBorders(this, pszControlName);
+		pPanel = pVideo;
+		pDesc = GetScriptDescForClass(CRichTextWithScrollbarBorders);
+	}
+
+	if (!pPanel)
+	{
+		return NULL;
+	}
+
+	pPanel->ApplySettings(hKV);
+
+	char szName[1024];
+	g_pScriptVM->GenerateUniqueKey((pszControlName != NULL_STRING) ? STRING(pszControlName) : pszPanelType, szName, 1024);
+	string_t m_iszScriptId = AllocPooledString(szName);
+
+	HSCRIPT m_hScriptInstance = g_pScriptVM->RegisterInstance(pDesc, pPanel);
+	g_pScriptVM->SetInstanceUniqeId(m_hScriptInstance, STRING(m_iszScriptId));
+
+	m_scriptPanels.Insert(m_hScriptInstance, pPanel);
+
+	return m_hScriptInstance;
+}
 
 CON_COMMAND(tfsolo_show_menu, "Show the solo menu")
 {

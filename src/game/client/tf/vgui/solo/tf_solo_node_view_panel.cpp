@@ -451,9 +451,9 @@ CSoloNodeViewPanel::CSoloNodeViewPanel(Panel* pParent, const char* pszPanelname)
 		pQuestTrackerPanel->AddActionSignalTarget(this);
 	}
 
-	ListenForGameEvent("quest_response");
-	ListenForGameEvent("quest_request");
-	ListenForGameEvent("quest_turn_in_state");
+	//ListenForGameEvent("quest_response");
+	//ListenForGameEvent("quest_request");
+	//ListenForGameEvent("quest_turn_in_state");
 }
 
 void CSoloNodeViewPanel::ApplySchemeSettings(IScheme* pScheme)

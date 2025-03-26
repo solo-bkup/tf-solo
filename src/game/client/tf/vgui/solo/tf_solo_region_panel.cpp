@@ -508,22 +508,22 @@ void CSoloRegionPanel::CloseNodeView()
 void CSoloRegionPanel::CreateActivationCircle(KeyValues* pParams)
 {
 	uint32 nNodeDefindex = pParams->GetInt("defindex");
-	const CQuestMapNode* pNode = GetQuestMapHelper().GetQuestMapNode(nNodeDefindex);
-	if (!pNode)
-		return;
+	//const CQuestMapNode* pNode = GetQuestMapHelper().GetQuestMapNode(nNodeDefindex);
+	//if (!pNode)
+	//	return;
 
 	//if (pNode->GetNodeDefinition()->GetRegionDefIndex() != m_msgIDCurrentRegion.defindex())
 	//	return;
 
-	unsigned short nKey = pNode->GetNodeDefinition()->GetDefIndex();
-	auto idx = m_mapNodePanels.Find(nKey);
-	if (idx == m_mapNodePanels.InvalidIndex())
-	{
-		Assert(false);
-		return;
-	}
+	//unsigned short nKey = pNode->GetNodeDefinition()->GetDefIndex();
+	//auto idx = m_mapNodePanels.Find(nKey);
+	//if (idx == m_mapNodePanels.InvalidIndex())
+	//{
+	//	Assert(false);
+	//	return;
+	//}
 
-	CSoloNodePanel* pNodePanel = m_mapNodePanels[idx];
+	CSoloNodePanel* pNodePanel = m_mapNodePanels[0];//m_mapNodePanels[idx];
 
 	Color colorStart = vgui::scheme()->GetIScheme(GetScheme())->GetColor("QuestMap_ActiveOrange", Color(255, 255, 255, 255));
 	Color colorEnd(colorStart.r(), colorStart.g(), colorStart.b(), 0.f);
@@ -640,11 +640,11 @@ void CSoloRegionPanel::FireGameEvent(IGameEvent* event)
 	}
 
 	bool bReload = false;
-	if (FStrEq("proto_def_changed", event->GetName()) &&
-		(event->GetInt("type") == DEF_TYPE_QUEST_MAP_NODE || event->GetInt("type") == DEF_TYPE_QUEST_MAP_REGION))
-	{
-		bReload = true;
-	}
+	//if (FStrEq("proto_def_changed", event->GetName()) &&
+	//	(event->GetInt("type") == DEF_TYPE_QUEST_MAP_NODE || event->GetInt("type") == DEF_TYPE_QUEST_MAP_REGION))
+	//{
+	//	bReload = true;
+	//}
 
 	if (bReload)
 	{
