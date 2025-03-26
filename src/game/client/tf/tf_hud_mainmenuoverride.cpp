@@ -659,6 +659,11 @@ void ConfirmModProgressReset(bool bConfirmed, void* pContext)
 	{
 		engine->ClientCmd_Unrestricted("tfsolo_reset_menu");
 		engine->ClientCmd_Unrestricted("tfsolo_reset");
+		IViewPortPanel* pMMOverride = (gViewPortInterface->FindPanelByName(PANEL_MAINMENUOVERRIDE));
+		if (pMMOverride)
+		{
+			((CHudMainMenuOverride*)pMMOverride)->OnMainMenuStabilized();
+		}
 	}
 }
 

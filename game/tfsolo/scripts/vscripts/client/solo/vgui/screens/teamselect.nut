@@ -1,5 +1,6 @@
 TFSOLO.Screens.TeamSelect <- class extends TFSOLO.Screen
 {
+	Name = "TeamSelect"
 	constructor() { }
 	
 	function OnEnter()
@@ -26,7 +27,6 @@ TFSOLO.Screens.TeamSelect <- class extends TFSOLO.Screen
 			brighttext =	"0",
 			Command =		"teamselect_red",
 			proportionaltoparent = "1",
-			//actionsignallevel = "4",
 
 			sound_depressed =	"UI/buttonclick.wav",
 			sound_released =	"UI/buttonclickrelease.wav",
@@ -56,12 +56,11 @@ TFSOLO.Screens.TeamSelect <- class extends TFSOLO.Screen
 			brighttext =	"0",
 			Command =		"teamselect_blue",
 			proportionaltoparent = "1",
-			//actionsignallevel = "4",
 
 			sound_depressed =	"UI/buttonclick.wav",
 			sound_released =	"UI/buttonclickrelease.wav",
 		}
-		kv2["default"] <- "1"
+		kv2["default"] <- "0"
 		SoloPanel.CreatePanelRoot(kv2)
 		
 		local kv3 = {
@@ -69,7 +68,6 @@ TFSOLO.Screens.TeamSelect <- class extends TFSOLO.Screen
 			fieldName		="Title"
 			xpos			="cs-0.5"
 			ypos			="50"
-			zpos			="10"
 			wide			="300"
 			tall			="14"
 			autoResize	="0"
@@ -94,15 +92,18 @@ TFSOLO.TeamSelectEventTag <- UniqueString()
 getroottable()[TFSOLO.TeamSelectEventTag] <- {
 	OnScriptHook_solopanel_command = function(params)
 	{
+		if (TFSOLO.Screens.Active != TFSOLO.Screens.TeamSelect) return;
 		if (params.command == "teamselect_blue")
 		{
 			TFSOLO.PlayerData.TeamSelected = 1
 			SoloPanel.PlayTransitionScreenEffects()
+			TFSOLO.Screens.Cutscene.Enter()
 		}
 		else if (params.command == "teamselect_red")
 		{
 			TFSOLO.PlayerData.TeamSelected = 0
 			SoloPanel.PlayTransitionScreenEffects()
+			TFSOLO.Screens.Cutscene.Enter()
 		}
 	}
 }

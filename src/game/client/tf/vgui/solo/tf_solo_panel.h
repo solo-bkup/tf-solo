@@ -58,10 +58,10 @@ public:
 	void ForceOpen();
 	void ForceClose();
 	void ForceUpdateControls();
-	virtual HSCRIPT CreatePanel(HSCRIPT hTable, HSCRIPT hParent);
+	virtual HSCRIPT CreatePanel(HSCRIPT hTable, const char* hParent);
 	virtual HSCRIPT CreatePanelRoot(HSCRIPT hTable);
 	virtual HSCRIPT CreatePanelInternal(HSCRIPT hTable, Panel* hParent);
-	virtual void DeleteSubPanel(HSCRIPT hPanel);
+	virtual void DeleteSubPanel(const char* hPanel);
 
 	void MapStateChangeSequence();
 	//void SetRegion(const CQuestMapRegion* pRegion, bool bZoomIn);

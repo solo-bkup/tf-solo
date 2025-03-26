@@ -93,7 +93,10 @@ CSoloPanel::CSoloPanel(Panel* pParent, const char* pszPanelName)
 	m_eScreenDisplay = SCREEN_INVALID;
 	ChangeScreenDisplay(SCREEN_STORE); // This needs to be after all the panel pointers are setup
 
-	g_pScriptVM->RegisterInstance(this, "SoloPanel");
+	if (!g_pScriptVM->Has("SoloPanel"))
+	{
+		g_pScriptVM->RegisterInstance(this, "SoloPanel");
+	}
 }
 
 CSoloPanel::~CSoloPanel()
@@ -179,6 +182,10 @@ void CSoloPanel::SetVisible(bool bVisible)
 
 	if (bVisible)
 	{
+		if (!g_pScriptVM->Has("SoloPanel"))
+		{
+			g_pScriptVM->RegisterInstance(this, "SoloPanel");
+		}
 		m_pQuestNodeViewPanel->SetVisible(false);
 		PlaySoundEntry("CYOA.MapOpen");
 		g_pClientMode->GetViewportAnimationController()->StartAnimationSequence(this, "SoloMenu_Start", false);
@@ -405,6 +412,11 @@ END_SCRIPTDESC();
 BEGIN_SCRIPTDESC(CItemModelPanel, Panel, "")
 END_SCRIPTDESC();
 BEGIN_SCRIPTDESC(CTFPlayerModelPanel, Panel, "")
+DEFINE_SCRIPTFUNC(SetToPlayerClass, "")
+DEFINE_SCRIPTFUNC(HoldItemInSlot, "")
+DEFINE_SCRIPTFUNC(HoldItem, "")
+DEFINE_SCRIPTFUNC(ClearCarriedItems, "")
+DEFINE_SCRIPTFUNC(PlayVCD, "")
 END_SCRIPTDESC();
 BEGIN_SCRIPTDESC(CTFVideoPanel, Panel, "")
 END_SCRIPTDESC();
@@ -412,7 +424,11 @@ BEGIN_SCRIPTDESC(CExRichText, Panel, "")
 END_SCRIPTDESC();
 BEGIN_SCRIPTDESC(CRichTextWithScrollbarBorders, Panel, "")
 END_SCRIPTDESC();
+BEGIN_SCRIPTDESC(CEconItemDetailsRichText, Panel, "")
+END_SCRIPTDESC();
 BEGIN_SCRIPTDESC(Label, Panel, "")
+END_SCRIPTDESC();
+BEGIN_SCRIPTDESC(Button, Panel, "")
 END_SCRIPTDESC();
 
 void CSoloPanel::ClearAllScriptPanels()
@@ -426,12 +442,12 @@ void CSoloPanel::ClearAllScriptPanels()
 	m_scriptPanels.Purge();
 }
 
-void CSoloPanel::DeleteSubPanel(HSCRIPT hPanel)
+void CSoloPanel::DeleteSubPanel(const char* hPanel)
 {
 	FOR_EACH_VEC(m_scriptPanels, pIter)
 	{
 		ScriptPanelData item = m_scriptPanels[pIter];
-		if (item.m_Handle == hPanel)
+		if (FStrEq(item.m_Panel->GetName(), hPanel))
 		{
 			g_pScriptVM->RemoveInstance(item.m_Handle);
 			item.m_Panel->DeletePanel();
@@ -440,12 +456,12 @@ void CSoloPanel::DeleteSubPanel(HSCRIPT hPanel)
 	}
 }
 
-HSCRIPT CSoloPanel::CreatePanel(HSCRIPT hTable, HSCRIPT hParentTarget)
+HSCRIPT CSoloPanel::CreatePanel(HSCRIPT hTable, const char* hParentTarget)
 {
 	FOR_EACH_VEC(m_scriptPanels, pIter)
 	{
 		ScriptPanelData item = m_scriptPanels[pIter];
-		if (item.m_Handle == hParentTarget)
+		if (FStrEq(item.m_Panel->GetName(), hParentTarget))
 		{
 			return CreatePanelInternal(hTable, item.m_Panel);
 		}
@@ -565,10 +581,22 @@ HSCRIPT CSoloPanel::CreatePanelInternal(HSCRIPT hTable, Panel* hParentTarget)
 		pPanel = pVideo;
 		pDesc = GetScriptDescForClass(Label);
 	}
-
-	if (!pPanel)
+	else if (FStrEq(pszPanelType, "CEconItemDetailsRichText"))
 	{
-		return NULL;
+		CEconItemDetailsRichText* pVideo = new CEconItemDetailsRichText(hParent, pszControlName);
+		pPanel = pVideo;
+		pDesc = GetScriptDescForClass(CEconItemDetailsRichText);
+	}
+	else if (FStrEq(pszPanelType, "Button"))
+	{
+		Button* pVideo = new Button(hParent, pszControlName, (const char*)NULL, this);
+		pPanel = pVideo;
+		pDesc = GetScriptDescForClass(Button);
+	}
+	else
+	{
+		// Panel not found!
+		Assert(false);
 	}
 
 	pPanel->ApplySettings(hKV);

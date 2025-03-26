@@ -4,6 +4,8 @@ TFSOLO.PlayerData <- {
 	TeamSelected = 0
 }
 
+TFSOLO.ConfigKV <- FileToKeyValues("cfg/solo/solo_config.txt")
+
 TFSOLO.VguiEventTag <- UniqueString()
 getroottable()[TFSOLO.VguiEventTag] <- {
 	OnScriptHook_solopanel_command = function(params)

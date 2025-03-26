@@ -1,17 +1,3 @@
-TFSOLO.VguiTestEventTag <- UniqueString()
-getroottable()[TFSOLO.VguiTestEventTag] <- {
-	OnScriptHook_solopanel_command = function(params)
-	{
-		if (params.command == "but_the_test")
-		{
-			SoloPanel.PlayTransitionScreenEffects()
-			TFSOLO.Screens.TeamSelect.Enter()
-		}
-	}
-}
-TFSOLO.VguiTestEventTable <- getroottable()[TFSOLO.VguiTestEventTag]
-__CollectGameEventCallbacks(TFSOLO.VguiTestEventTable)
-
 TFSOLO.Screens.Test <- class extends TFSOLO.Screen
 {
 	Name = "TestScreen"
@@ -21,10 +7,6 @@ TFSOLO.Screens.Test <- class extends TFSOLO.Screen
 		
     }
 	
-	function Reset()
-	{
-		
-	}
 	function OnEnter()
 	{
 		local kv = {
@@ -49,7 +31,6 @@ TFSOLO.Screens.Test <- class extends TFSOLO.Screen
 			brighttext =	"0",
 			Command =		"but_the_test",
 			proportionaltoparent = "1",
-			//actionsignallevel = "4",
 
 			sound_depressed =	"UI/buttonclick.wav",
 			sound_released =	"UI/buttonclickrelease.wav",
@@ -62,3 +43,18 @@ TFSOLO.Screens.Test <- class extends TFSOLO.Screen
 		
 	}
 }
+
+TFSOLO.VguiTestEventTag <- UniqueString()
+getroottable()[TFSOLO.VguiTestEventTag] <- {
+	OnScriptHook_solopanel_command = function(params)
+	{
+		if (TFSOLO.Screens.Active != TFSOLO.Screens.Test) return;
+		if (params.command == "but_the_test")
+		{
+			SoloPanel.PlayTransitionScreenEffects()
+			TFSOLO.Screens.TeamSelect.Enter()
+		}
+	}
+}
+TFSOLO.VguiTestEventTable <- getroottable()[TFSOLO.VguiTestEventTag]
+__CollectGameEventCallbacks(TFSOLO.VguiTestEventTable)

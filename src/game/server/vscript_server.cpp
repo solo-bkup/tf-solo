@@ -2562,9 +2562,9 @@ bool Script_IsClient()
 	return false;
 }
 
-bool Script_ConnectedToGC()
+bool Script_ConnectedOnline()
 {
-	return GTFGCClientSystem()->BConnectedtoGC();
+	return steamapicontext != NULL && steamapicontext->SteamUser() != NULL && steamapicontext->SteamUser()->BLoggedOn();
 }
 int Script_GetAppID()
 {
@@ -2989,7 +2989,7 @@ bool VScriptServerInit()
 				ScriptRegisterFunctionNamed(g_pScriptVM, Script_FileExists, "FileExists", "Returns true if file exists in file system.");
 				ScriptRegisterFunctionNamed(g_pScriptVM, Script_IsServer, "IsServer", "Returns true if script is running on the server.");
 				ScriptRegisterFunctionNamed(g_pScriptVM, Script_IsClient, "IsClient", "Returns true if script is running on the client.");
-				ScriptRegisterFunctionNamed(g_pScriptVM, Script_ConnectedToGC, "ConnectedToGC", "Returns true if server is connected to the game coordinator.");
+				ScriptRegisterFunctionNamed(g_pScriptVM, Script_ConnectedOnline, "ConnectedOnline", "Returns true if server is connected to the internet.");
 				ScriptRegisterFunctionNamed(g_pScriptVM, Script_GetAppID, "GetAppID", "Get the Steam app ID that the game is currently running on.");
 
 				ScriptRegisterFunctionNamed(g_pScriptVM, Script_BSP_CacheStartSingle, "BSP_CacheStartSingle", "Request a single asset to be loaded per map file. Example table: [maps/pd_selbyen.bsp] = models/props_selbyen/seal.mdl");

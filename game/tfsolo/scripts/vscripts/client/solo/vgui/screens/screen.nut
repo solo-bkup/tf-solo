@@ -10,7 +10,11 @@ getroottable()[TFSOLO.Screens.EventTag] <- {
 			if (TFSOLO.Screens.Active == null)
 			{
 				printl("Spawning VGUI")
-				TFSOLO.Screens.Test.Enter()
+				if (!IsInGame())
+				{
+					SendToConsole("stopsound")
+				}
+				TFSOLO.Screens.TeamSelect.Enter()
 			}
 		}
 	}
@@ -27,12 +31,12 @@ TFSOLO.Screen <- class
 
     }
 	
-	function Reset()
-	{
-		
-	}
 	function Enter()
 	{
+		if (TFSOLO.Screens.Active != null)
+		{
+			TFSOLO.Screens.Active.Exit()
+		}
 		SoloPanel.ClearAllScriptPanels()
 		TFSOLO.Screens.Active = this
 		OnEnter()
@@ -52,4 +56,6 @@ TFSOLO.Screen <- class
 
 IncludeScript("client/solo/vgui/screens/test.nut")
 IncludeScript("client/solo/vgui/screens/teamselect.nut")
+IncludeScript("client/solo/vgui/screens/cutscene.nut")
+IncludeScript("client/solo/vgui/screens/mapselect.nut")
 
