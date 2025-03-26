@@ -62,6 +62,7 @@
 #include "econ_paintkit.h"
 #include "ienginevgui.h"
 #include "vscript_client.h"
+#include "vgui/solo/tf_solo_panel.h"
 
 
 #include "c_tf_gamestats.h"
@@ -656,6 +657,7 @@ void ConfirmModProgressReset(bool bConfirmed, void* pContext)
 {
 	if (bConfirmed)
 	{
+		engine->ClientCmd_Unrestricted("tfsolo_reset_menu");
 		engine->ClientCmd_Unrestricted("tfsolo_reset");
 	}
 }
@@ -2096,6 +2098,8 @@ void CHudMainMenuOverride::OnCommand( const char *command )
 	{
 		if (!engine->IsInGame())
 		{
+			EconUI()->CloseEconUI();
+			GetSoloPanel()->SetVisible(false);
 			ShowConfirmDialog("#TFSOLO_ResetProgress_Title", "#TFSOLO_ResetProgress_Body", "#TF_Coach_Yes", "#TF_Coach_No", ConfirmModProgressReset, this);
 		}
 	}

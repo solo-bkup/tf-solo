@@ -58,7 +58,9 @@ public:
 	void ForceOpen();
 	void ForceClose();
 	void ForceUpdateControls();
-	virtual HSCRIPT CreatePanel(HSCRIPT hTable);
+	virtual HSCRIPT CreatePanel(HSCRIPT hTable, HSCRIPT hParent);
+	virtual HSCRIPT CreatePanelRoot(HSCRIPT hTable);
+	virtual HSCRIPT CreatePanelInternal(HSCRIPT hTable, Panel* hParent);
 
 	void MapStateChangeSequence();
 	//void SetRegion(const CQuestMapRegion* pRegion, bool bZoomIn);
@@ -87,7 +89,6 @@ private:
 	vgui::EditablePanel* m_pMainContainer;
 	vgui::EditablePanel* m_pToolTipEmbeddedPanel;
 	vgui::EditablePanel* m_pMapAreaPanel;
-	vgui::EditablePanel* m_pTurnInCompletePopup;
 
 	CUtlMap< uint32, CSoloRegionPanel* > m_mapRegions;
 	CUtlMap< HSCRIPT, Panel* > m_scriptPanels;
