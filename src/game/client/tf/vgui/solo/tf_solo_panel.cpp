@@ -332,6 +332,11 @@ void CSoloPanel::ForceUpdateControls()
 	UpdateControls();
 }
 
+void CSoloPanel::RunAnimationScript(const char* pszScript, bool bCanBeCancelled)
+{
+	g_pClientMode->GetViewportAnimationController()->RunScript(pszScript, this, bCanBeCancelled);
+}
+
 BEGIN_SCRIPTDESC_ROOT(CSoloPanel, SCRIPT_SINGLETON "Used to access the main solo interface")
 
 DEFINE_SCRIPTFUNC(ForceOpen, "")
@@ -342,6 +347,7 @@ DEFINE_SCRIPTFUNC(CreatePanelRoot, "")
 DEFINE_SCRIPTFUNC(DeleteSubPanel, "")
 DEFINE_SCRIPTFUNC(ClearAllScriptPanels, "")
 DEFINE_SCRIPTFUNC(PlayTransitionScreenEffects, "")
+DEFINE_SCRIPTFUNC(RunAnimationScript, "")
 
 END_SCRIPTDESC();
 
@@ -437,7 +443,18 @@ void CSoloPanel::ClearAllScriptPanels()
 	{
 		ScriptPanelData item = m_scriptPanels[pIter];
 		g_pScriptVM->RemoveInstance(item.m_Handle);
-		item.m_Panel->DeletePanel();
+		if (!item.m_RootChild)
+		{
+			item.m_Panel->SetAutoDelete(true);
+		}
+	}
+	FOR_EACH_VEC(m_scriptPanels, pIter)
+	{
+		ScriptPanelData item = m_scriptPanels[pIter];
+		if (item.m_RootChild)
+		{
+			item.m_Panel->DeletePanel();
+		}
 	}
 	m_scriptPanels.Purge();
 }
@@ -611,6 +628,11 @@ HSCRIPT CSoloPanel::CreatePanelInternal(HSCRIPT hTable, Panel* hParentTarget)
 	ScriptPanelData PanelData;
 	PanelData.m_Handle = m_hScriptInstance;
 	PanelData.m_Panel = pPanel;
+	PanelData.m_RootChild = true;
+	if (hParent != this)
+	{
+		PanelData.m_RootChild = false;
+	}
 
 	m_scriptPanels.AddToTail(PanelData);
 

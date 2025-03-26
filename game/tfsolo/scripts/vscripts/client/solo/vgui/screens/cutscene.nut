@@ -18,7 +18,7 @@ TFSOLO.Screens.Cutscene <- class extends TFSOLO.Screen
 			fieldName =		"CutsceneScreenButtonSkip",
 			xpos =			"cs-0.5+150",
 			ypos =			"cs-0.5-150",
-			zpos =			"10",
+			zpos =			"16",
 			wide =			"110",
 			tall =			"25",
 			autoResize =	"0",
@@ -93,11 +93,11 @@ TFSOLO.Screens.Cutscene <- class extends TFSOLO.Screen
 		local kvProgressButton = {
 			ControlName=	"Button"
 			fieldName=		"DialogueProgressButton"
-			xpos=			"cs-0.5"
-			ypos=			"r80"
+			xpos=			"0"//"cs-0.5"
+			ypos=			"0"//"r80"
 			zpos=			"15"
-			wide=			"470"
-			tall=			"80"
+			wide=			"f0"//"470"
+			tall=			"f0"//"80"
 			autoResize=		"0"
 			pinCorner=		"0"
 			visible=		"1"
@@ -134,7 +134,7 @@ TFSOLO.Screens.Cutscene <- class extends TFSOLO.Screen
 		
 		local kvActorPanel1 = {
 			ControlName=	"CTFPlayerModelPanel"
-			fieldName=		"classmodelpanel"
+			fieldName=		"ActorPanel1"
 			
 			xpos=			"cs-0.5-135"
 			ypos=			"cs-0.5"
@@ -174,7 +174,7 @@ TFSOLO.Screens.Cutscene <- class extends TFSOLO.Screen
 		
 		local kvActorPanel2 = {
 			ControlName=	"CTFPlayerModelPanel"
-			fieldName=		"classmodelpanel"
+			fieldName=		"ActorPanel2"
 			
 			xpos=			"cs-0.5+135"
 			ypos=			"cs-0.5"
