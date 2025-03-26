@@ -332,6 +332,7 @@ DEFINE_SCRIPTFUNC(ForceClose, "")
 DEFINE_SCRIPTFUNC(ForceUpdateControls, "")
 DEFINE_SCRIPTFUNC(CreatePanel, "")
 DEFINE_SCRIPTFUNC(CreatePanelRoot, "")
+DEFINE_SCRIPTFUNC(DeleteSubPanel, "")
 DEFINE_SCRIPTFUNC(ClearAllScriptPanels, "")
 DEFINE_SCRIPTFUNC(PlayTransitionScreenEffects, "")
 
@@ -411,23 +412,43 @@ BEGIN_SCRIPTDESC(CExRichText, Panel, "")
 END_SCRIPTDESC();
 BEGIN_SCRIPTDESC(CRichTextWithScrollbarBorders, Panel, "")
 END_SCRIPTDESC();
+BEGIN_SCRIPTDESC(Label, Panel, "")
+END_SCRIPTDESC();
 
 void CSoloPanel::ClearAllScriptPanels()
 {
-	FOR_EACH_MAP(m_scriptPanels, pIter)
+	FOR_EACH_VEC(m_scriptPanels, pIter)
 	{
-		g_pScriptVM->RemoveInstance(m_scriptPanels.Key(pIter));
-		m_scriptPanels[pIter]->DeletePanel();
+		ScriptPanelData item = m_scriptPanels[pIter];
+		g_pScriptVM->RemoveInstance(item.m_Handle);
+		item.m_Panel->DeletePanel();
 	}
 	m_scriptPanels.Purge();
 }
 
+void CSoloPanel::DeleteSubPanel(HSCRIPT hPanel)
+{
+	FOR_EACH_VEC(m_scriptPanels, pIter)
+	{
+		ScriptPanelData item = m_scriptPanels[pIter];
+		if (item.m_Handle == hPanel)
+		{
+			g_pScriptVM->RemoveInstance(item.m_Handle);
+			item.m_Panel->DeletePanel();
+			return;
+		}
+	}
+}
+
 HSCRIPT CSoloPanel::CreatePanel(HSCRIPT hTable, HSCRIPT hParentTarget)
 {
-	if (m_scriptPanels.HasElement(hParentTarget))
+	FOR_EACH_VEC(m_scriptPanels, pIter)
 	{
-		auto key = m_scriptPanels.Find(hParentTarget);
-		return CreatePanelInternal(hTable, m_scriptPanels[key]);
+		ScriptPanelData item = m_scriptPanels[pIter];
+		if (item.m_Handle == hParentTarget)
+		{
+			return CreatePanelInternal(hTable, item.m_Panel);
+		}
 	}
 	return NULL;
 }
@@ -538,6 +559,12 @@ HSCRIPT CSoloPanel::CreatePanelInternal(HSCRIPT hTable, Panel* hParentTarget)
 		pPanel = pVideo;
 		pDesc = GetScriptDescForClass(CRichTextWithScrollbarBorders);
 	}
+	else if (FStrEq(pszPanelType, "Label"))
+	{
+		Label* pVideo = new Label(hParent, pszControlName, (const char*)NULL);
+		pPanel = pVideo;
+		pDesc = GetScriptDescForClass(Label);
+	}
 
 	if (!pPanel)
 	{
@@ -553,7 +580,11 @@ HSCRIPT CSoloPanel::CreatePanelInternal(HSCRIPT hTable, Panel* hParentTarget)
 	HSCRIPT m_hScriptInstance = g_pScriptVM->RegisterInstance(pDesc, pPanel);
 	g_pScriptVM->SetInstanceUniqeId(m_hScriptInstance, STRING(m_iszScriptId));
 
-	m_scriptPanels.Insert(m_hScriptInstance, pPanel);
+	ScriptPanelData PanelData;
+	PanelData.m_Handle = m_hScriptInstance;
+	PanelData.m_Panel = pPanel;
+
+	m_scriptPanels.AddToTail(PanelData);
 
 	return m_hScriptInstance;
 }

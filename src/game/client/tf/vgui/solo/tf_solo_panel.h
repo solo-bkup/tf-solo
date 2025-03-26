@@ -61,6 +61,7 @@ public:
 	virtual HSCRIPT CreatePanel(HSCRIPT hTable, HSCRIPT hParent);
 	virtual HSCRIPT CreatePanelRoot(HSCRIPT hTable);
 	virtual HSCRIPT CreatePanelInternal(HSCRIPT hTable, Panel* hParent);
+	virtual void DeleteSubPanel(HSCRIPT hPanel);
 
 	void MapStateChangeSequence();
 	//void SetRegion(const CQuestMapRegion* pRegion, bool bZoomIn);
@@ -78,6 +79,13 @@ public:
 		SCREEN_STORE,
 	};
 	void ChangeScreenDisplay(EScreenDisplay eScreen);
+
+	struct ScriptPanelData
+	{
+		HSCRIPT m_Handle;
+		Panel* m_Panel;
+	};
+
 private:
 	
 	CSoloObjectiveTooltip* m_pQuestObjectiveTooltip;
@@ -91,7 +99,7 @@ private:
 	vgui::EditablePanel* m_pMapAreaPanel;
 
 	CUtlMap< uint32, CSoloRegionPanel* > m_mapRegions;
-	CUtlMap< HSCRIPT, Panel* > m_scriptPanels;
+	CUtlVector< ScriptPanelData > m_scriptPanels;
 	//CMsgProtoDefID	m_currentRegion;
 
 	bool m_bTurnInSuccess = false;
