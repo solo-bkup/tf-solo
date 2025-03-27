@@ -5,12 +5,33 @@ TFSOLO.WorldMaps.ActiveNode <- null
 TFSOLO.WorldMapNode <- class
 {
 	Name = "Base Node"
-	Map = ""
 	Icon = ""
 	PosX = "cs-0.5"
 	PosY = "cs-0.5"
+	Tooltip = ""
 	Cutscene = null
 	Panel = null
+	
+	Map = ""
+	PlayerClass = "any"
+	
+	function Select()
+	{
+		if (Cutscene != null)
+		{
+			Cutscene.Enter()
+		}
+		else
+		{
+			OnSelect()
+		}
+	}
+	function OnSelect()
+	{
+		TFSOLO.PlayerData.Map = Map
+		TFSOLO.PlayerData.PlayerClass = PlayerClass
+		TFSOLO.StartMission()
+	}
 	
 	constructor() { }
 	constructor(aname, amap, aicon) { 
@@ -42,6 +63,7 @@ TFSOLO.WorldMap <- class
 	
 	Name = "Base World Map"
 	Nodes = []
+	SelectedNode = null
 	
 	
 	constructor() { }

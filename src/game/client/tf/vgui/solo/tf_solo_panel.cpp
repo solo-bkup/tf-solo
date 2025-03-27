@@ -322,6 +322,10 @@ void CSoloPanel::ForceUpdateControls()
 {
 	UpdateControls();
 }
+void CSoloPanel::HideMainTooltip()
+{
+	m_pToolTip->HideTooltip();
+}
 
 void CSoloPanel::RunAnimationScript(const char* pszScript, bool bCanBeCancelled)
 {
@@ -338,6 +342,7 @@ DEFINE_SCRIPTFUNC(CreatePanelRoot, "")
 DEFINE_SCRIPTFUNC(DeleteSubPanel, "")
 DEFINE_SCRIPTFUNC(ClearAllScriptPanels, "")
 DEFINE_SCRIPTFUNC(RunAnimationScript, "")
+DEFINE_SCRIPTFUNC(HideMainTooltip, "")
 
 END_SCRIPTDESC();
 

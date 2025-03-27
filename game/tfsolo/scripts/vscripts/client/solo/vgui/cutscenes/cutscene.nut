@@ -16,11 +16,17 @@ TFSOLO.Cutscene <- class
 	}
 	function Exit()
 	{
+		TFSOLO.Cutscenes.Active = null
+		TFSOLO.PlayTransitionScreenEffects()
 		OnExit()
 	}
 	function OnExit()
 	{
-		
+		if (TFSOLO.WorldMaps.Active != null && TFSOLO.WorldMaps.Active.SelectedNode != null)
+		{
+			TFSOLO.WorldMaps.Active.SelectedNode.OnSelect()
+			TFSOLO.WorldMaps.Active.Enter()
+		}
 	}
 	function Skip()
 	{

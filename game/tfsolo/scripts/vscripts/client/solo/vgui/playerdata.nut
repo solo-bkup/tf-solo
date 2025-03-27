@@ -3,7 +3,7 @@ TFSOLO.PlayerData <- {
 	// Dynamic
 	TeamSelected = 0
 	Map = ""
-	Class = 0
+	PlayerClass = "any"
 	
 	// Persistent
 	Seed = 0

@@ -16,12 +16,6 @@ TFSOLO.Cutscenes.Test <- class extends TFSOLO.Cutscene
 		TFSOLO.Cutscenes.Test.Exit()
 		return
 	}
-	function OnExit()
-	{
-		TFSOLO.Cutscenes.Active = null
-		TFSOLO.PlayTransitionScreenEffects()
-		TFSOLO.Screens.Test.Enter()
-	}
 	
 	Name = "TestCutscene"
 	constructor() { }

@@ -58,6 +58,7 @@ public:
 	void ForceOpen();
 	void ForceClose();
 	void ForceUpdateControls();
+	void HideMainTooltip();
 	void RunAnimationScript(const char* pszScript, bool bCanBeCancelled);
 	virtual HSCRIPT CreatePanel(HSCRIPT hTable, const char* hParent);
 	virtual HSCRIPT CreatePanelRoot(HSCRIPT hTable);

@@ -14,7 +14,7 @@ getroottable()[TFSOLO.Screens.EventTag] <- {
 				{
 					SendToConsole("stopsound")
 				}
-				TFSOLO.Screens.Test.Enter()
+				TFSOLO.Screens.TeamSelect.Enter()
 			}
 		}
 	}
@@ -47,6 +47,7 @@ TFSOLO.Screen <- class
 	}
 	function Exit()
 	{
+		SoloPanel.HideMainTooltip()
 		OnExit()
 	}
 	function OnExit()

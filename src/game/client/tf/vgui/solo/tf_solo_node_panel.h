@@ -72,6 +72,11 @@ private:
 	bool m_bHasItem;
 	bool m_bIsLocked;
 	const char* m_pszIconName;
+	int m_nCompletionState;
+	int m_nCompletionSegments = 1;
+	bool m_bIsIngame;
+	int m_nNodeID;
+	const char* m_pszTooltipText;
 };
 
 //-----------------------------------------------------------------------------

@@ -5,6 +5,8 @@
 #include "vgui/ISurface.h"
 #include "vgui_controls/CircularProgressBar.h"
 #include "vscript_client.h"
+#include "clientmode_tf.h"
+#include "tf_solo_panel.h"
 
 const float node_cycle_time(3.f);
 const float node_alpha_start(255);
@@ -82,7 +84,11 @@ void CSoloNodePanel::ApplySettings(KeyValues* inResourceData)
 	m_nStarCount = inResourceData->GetInt("hasStarCount");
 	m_bHasItem = inResourceData->GetInt("hasItem");
 	m_bIsLocked = inResourceData->GetInt("isLocked");
+	m_nCompletionState = inResourceData->GetInt("completionState");
+	m_nCompletionSegments = inResourceData->GetInt("completionSegments", 1);
 	m_pszIconName = inResourceData->GetString("iconName");
+	m_nNodeID = inResourceData->GetInt("nodeID");
+	m_pszTooltipText = inResourceData->GetString("tooltipText");
 
 	UpdateStateVisuals();
 }
@@ -94,12 +100,11 @@ void CSoloNodePanel::PerformLayout()
 
 void CSoloNodePanel::UpdateStateVisuals()
 {
-	//bool bEffects = pKVParams && pKVParams->GetBool("effects", false);
-
 	Color colorActive = vgui::scheme()->GetIScheme(GetScheme())->GetColor("QuestMap_ActiveOrange", Color(255, 255, 255, 255));
 	ImagePanel* pIcon = FindControl< ImagePanel >("NodeIcon");
 	pIcon->SetImage(m_pszIconName);
 
+	//bool bEffects = pKVParams && pKVParams->GetBool("effects", false);
 	//bool bNewRequirementsMetState = pNode || pDef->BCanUnlock(GetQuestMapHelper());
 	/*
 	bool bNewRequirementsMetState = false;
@@ -126,8 +131,14 @@ void CSoloNodePanel::UpdateStateVisuals()
 	m_bRequirementsMet = bNewRequirementsMetState;
 	*/
 
-	//pIcon->SetDrawColor(pNode ? colorActive : Color(100, 100, 100, 255));
-	pIcon->SetDrawColor(Color(100, 100, 100, 255));
+	if (m_nCompletionState > m_nCompletionSegments || m_bIsIngame)
+	{
+		pIcon->SetDrawColor(colorActive);
+	}
+	else
+	{
+		pIcon->SetDrawColor(Color(100, 100, 100, 255));
+	}
 	SetControlVisible("LockedIcon", m_bIsLocked);
 	SetControlVisible("ItemIcon", m_bHasItem);
 	SetControlVisible("CashIcon", m_nCreditsType != 0);
@@ -153,14 +164,13 @@ void CSoloNodePanel::UpdateStateVisuals()
 		m_pStarCostImage->SetVisible(false);
 	}
 
-	/*switch (pDef->GetCashRewardType())
+	switch (m_nCreditsType)
 	{
-	case CASH_REWARD_LARGE: SetDialogVariable("cash", "$$$"); break;
-	case CASH_REWARD_MEDIUM: SetDialogVariable("cash", "$$"); break;
-	case CASH_REWARD_SMALL: SetDialogVariable("cash", "$"); break;
-	case CASH_REWARD_NONE: SetDialogVariable("cash", ""); break;
-	}*/
-	SetDialogVariable("cash", "$");
+	case 3: SetDialogVariable("cash", "$$$"); break;
+	case 2: SetDialogVariable("cash", "$$"); break;
+	case 1: SetDialogVariable("cash", "$"); break;
+	case 0: SetDialogVariable("cash", ""); break;
+	}
 
 	Label* pCashIcon = FindControl< Label >("CashIcon");
 	Panel* pItemIcon = FindChildByName("ItemIcon");
@@ -181,15 +191,10 @@ void CSoloNodePanel::UpdateStateVisuals()
 	if (pTooltipRegion)
 	{
 		pTooltipRegion->InstallMouseHandler(m_pSelectButton, true, true);
-		//pTooltipRegion->SetTooltip(m_bRequirementsMet ? NULL : GetQuestMapPanel()->GetTextTooltip(), NULL);
-
-		// Show the reason why they can't unlock
-		if (!m_bRequirementsMet)
+		if (Q_strlen(m_pszTooltipText) > 0)
 		{
-			//wchar_t wszBuff[1024];
-			//memset(wszBuff, 0, sizeof(wszBuff));
-			//pDef->GetCantUnlockReason(wszBuff, sizeof(wszBuff));
-			//pTooltipRegion->SetDialogVariable("tiptext", wszBuff);
+			pTooltipRegion->SetTooltip(GetSoloPanel()->GetTextTooltip(), NULL);
+			pTooltipRegion->SetDialogVariable("tiptext", m_pszTooltipText);
 		}
 	}
 }
@@ -212,15 +217,7 @@ void CSoloNodePanel::DrawNode(float flXPos,
 	// Black background to start
 	DrawFilledColoredCircle(flXPos, flYPos, flMediumRadius + YRES(1), colorBlack);
 
-	//auto pDef = GetNodeDef();
-	int nNumSegments = 1;
-	//for (int i = 0; i < EQuestPoints_ARRAYSIZE; ++i)
-	//{
-		//if (pDef->BIsMedalOffered((EQuestPoints)i))
-		//{
-		//	++nNumSegments;
-		//}
-	//}
+	int nNumSegments = m_nCompletionSegments;
 
 	float flGap = nNumSegments == 1 ? 0.f : 2.f;		// Gap between segment
 
@@ -231,29 +228,17 @@ void CSoloNodePanel::DrawNode(float flXPos,
 		DrawFilledColoredCircleSegment(flXPos, flYPos, flMediumRadius, flMediumRadius - YRES(2), color, flStart, flEnd);
 	};
 
-
-
-	// Paint all the grey slots first.  We'll paint over them with orange later
 	for (int i = 0; i < nNumSegments; ++i)
 	{
-		lambdaPaintCompletionSegment(i, colorInactive);
+		if (i >= m_nCompletionState)
+		{
+			lambdaPaintCompletionSegment(i, colorInactive);
+		}
+		else
+		{
+			lambdaPaintCompletionSegment(i, colorActive);
+		}
 	}
-
-	// Paint an orange segment for earned categories
-	/*if (m_msgLocalState.star_0_earned())
-	{
-		lambdaPaintCompletionSegment(1, colorActive);
-	}
-
-	if (m_msgLocalState.star_1_earned())
-	{
-		lambdaPaintCompletionSegment(2, colorBonus);
-	}
-
-	if (m_msgLocalState.star_2_earned())
-	{
-		lambdaPaintCompletionSegment(0, colorBonus);
-	}*/
 }
 
 void CSoloNodePanel::Paint()
@@ -277,16 +262,6 @@ void CSoloNodePanel::Paint()
 	const float flSmallRadius = node_small_radius;
 	const float flMediumRadius = node_medium_radius;
 	const float flLargeRadius = node_large_radius;
-
-	//const CQuestMapNode* pNode = GetQuestMapHelper().GetQuestMapNode(m_msgLocalState.defindex());
-	//if (!pNode)
-	if (true)
-	{
-		// Still draw the node in staging for content creation
-		DrawNode(x, y, false, colorActive, colorActive, colorInactive, 1.f);
-
-		return;
-	}
 
 	float flScale = 1.f;
 
@@ -365,6 +340,12 @@ void CSoloNodePanel::OnCommand(const char* pCommand)
 		}
 		else
 		{
+			IScriptVM* pVM = g_pScriptVM;
+			ScriptVariant_t varTable;
+			pVM->CreateTable(varTable);
+			pVM->SetValue(varTable, "nodeID", m_nNodeID);
+			RunScriptHook("node_selected", varTable);
+
 			//PostActionSignal(new KeyValues("NodeSelected", "node", m_msgLocalState.defindex()));
 			EnterMapState(SELECTED);
 		}
@@ -379,30 +360,21 @@ void CSoloNodePanel::EnterMapState(EMapState eMapState)
 
 	m_eMapState = eMapState;
 
-	bool bUnlocked = false;
-
-	//const CQuestMapNode* pNode = GetQuestMapHelper().GetQuestMapNode(m_msgLocalState.defindex());
-	//if (pNode)
-	if (true)
-	{
-		bUnlocked = true;
-	}
-
 	switch (eMapState)
 	{
 	case MOUSE_OVER:
 	{
-		if (bUnlocked)
-		{
-			//PlaySoundEntry("CYOA.PingInProgress");
-		}
-		/*else if (GetNodeDef()->BCanUnlock(GetQuestMapHelper()))
+		if (!m_bIsLocked)
 		{
 			PlaySoundEntry("CYOA.PingAvailable");
-		}*/
+		}
+		else if (m_bIsIngame)
+		{
+			PlaySoundEntry("CYOA.PingInProgress");
+		}
 		else
 		{
-			//PlaySoundEntry("CYOA.NodeLocked");
+			PlaySoundEntry("CYOA.NodeLocked");
 		}
 	}
 	break;

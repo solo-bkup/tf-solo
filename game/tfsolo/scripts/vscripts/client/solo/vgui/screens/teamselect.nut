@@ -97,13 +97,13 @@ getroottable()[TFSOLO.TeamSelectEventTag] <- {
 		{
 			TFSOLO.PlayerData.TeamSelected = 1
 			TFSOLO.PlayTransitionScreenEffects()
-			TFSOLO.Screens.Cutscene.Enter()
+			TFSOLO.WorldMaps.Test.Enter()
 		}
 		else if (params.command == "teamselect_red")
 		{
 			TFSOLO.PlayerData.TeamSelected = 0
 			TFSOLO.PlayTransitionScreenEffects()
-			TFSOLO.Screens.Cutscene.Enter()
+			TFSOLO.WorldMaps.Test.Enter()
 		}
 	}
 }
