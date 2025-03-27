@@ -1023,7 +1023,7 @@ void CScriptKeyValues::ScriptRemoveSubKey(const char* pszName)
 	}
 }
 
-const char* CScriptKeyValues::ScriptGetKeyValueName(const char* pszName)
+const char* CScriptKeyValues::ScriptGetKeyValueName()
 {
 	const char* psz = m_pKeyValues->GetName();
 	return psz;

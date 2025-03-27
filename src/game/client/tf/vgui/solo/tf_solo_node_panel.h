@@ -23,11 +23,11 @@ public:
 	};
 
 	DECLARE_CLASS_SIMPLE(CSoloNodePanel, vgui::EditablePanel);
-	CSoloNodePanel(uint32 nDefIndex, Panel* pParent, const char* pszPanelName);
+	CSoloNodePanel(Panel* pParent, const char* pszPanelName);
 	~CSoloNodePanel();
 
 	virtual void ApplySchemeSettings(IScheme* pScheme) OVERRIDE;
-	virtual void ApplySettings(KeyValues* inResourceData);
+	virtual void ApplySettings(KeyValues* inResourceData) OVERRIDE;
 	virtual void OnCommand(const char* pCommand) OVERRIDE;
 	virtual void PerformLayout() OVERRIDE;
 	virtual void OnThink() OVERRIDE;
@@ -37,7 +37,7 @@ public:
 	virtual void OnMousePressed(MouseCode code) OVERRIDE;
 	virtual void OnMouseDoublePressed(MouseCode code) OVERRIDE;
 
-	MESSAGE_FUNC_PARAMS(UpdateStateVisuals, "UpdateStateVisuals", pKVParams);
+	void UpdateStateVisuals();
 
 	EMapState GetState() const { return m_eMapState; }
 	void EnterMapState(EMapState eMapState);
@@ -55,16 +55,23 @@ private:
 
 	EMapState m_eMapState;
 	float m_flMapStateEnterTime;
-
 	CExButton* m_pSelectButton;
 	Label* m_pNameLabel;
 	ImagePanel* m_pStarCostImage;
 	bool m_bOverSelected;
-	bool m_bRequirementsMet;
+	
 	bool m_bBaselineSet = false;
 
 	int m_nStartWide;
 	int m_nStartTall;
+
+	bool m_bRequirementsMet;
+	int m_nCreditsType;
+	const char* m_pszNodeText;
+	int m_nStarCount;
+	bool m_bHasItem;
+	bool m_bIsLocked;
+	const char* m_pszIconName;
 };
 
 //-----------------------------------------------------------------------------

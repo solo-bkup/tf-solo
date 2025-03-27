@@ -53,7 +53,8 @@ getroottable()[TFSOLO.VguiTestEventTag] <- {
 		{
 			TFSOLO.PlayTransitionScreenEffects()
 			//TFSOLO.Screens.TeamSelect.Enter()
-			TFSOLO.Cutscenes.Test.Enter()
+			//TFSOLO.Cutscenes.Test.Enter()
+			TFSOLO.WorldMaps.Test.Enter()
 		}
 	}
 }

@@ -48,15 +48,13 @@ void DrawAmbientActiveCirlceSolo(float flXPos, float flYPos, const Color& color)
 	}
 }
 
-CSoloNodePanel::CSoloNodePanel(uint32 nDefIndex, Panel* pParent, const char* pszPanelName)
+CSoloNodePanel::CSoloNodePanel(Panel* pParent, const char* pszPanelName)
 	: EditablePanel(pParent, pszPanelName)
 	, m_flMapStateEnterTime(0.f)
 	, m_eMapState(NEUTRAL)
 	, m_bOverSelected(false)
 	, m_bRequirementsMet(false)
 {
-	//UpdateFromSObject(GetQuestMapHelper().GetQuestMapNode(nDefIndex));
-	//m_msgLocalState.set_defindex(nDefIndex);
 	m_pSelectButton = new CExButton(this, "SelectButton", (char*)NULL);
 	m_pSelectButton->PassMouseTicksTo(this, true);
 	m_pNameLabel = new Label(this, "NodeNameLabel", (const char*)NULL);
@@ -74,53 +72,37 @@ void CSoloNodePanel::ApplySchemeSettings(IScheme* pScheme)
 
 void CSoloNodePanel::ApplySettings(KeyValues* inResourceData)
 {
-	// Inject our position into the KVs that are about to go down into
-	// Panel::ApplySettings which will do all the positioning calculations
-	//auto pDef = GetNodeDef();
-	//Assert(pDef);
-	//if (pDef)
-	//{
-	//	inResourceData->SetFloat("xpos", pDef->GetXPos() - (inResourceData->GetFloat("wide") / 2.f));
-	//	inResourceData->SetFloat("ypos", pDef->GetYPos() - (inResourceData->GetFloat("tall") / 2.f));
-	//}
-
 	BaseClass::ApplySettings(inResourceData);
 
 	m_nStartWide = GetWide();
 	m_nStartTall = GetTall();
+
+	m_nCreditsType = inResourceData->GetInt("hasCredits");
+	m_pszNodeText = inResourceData->GetString("nodeText");
+	m_nStarCount = inResourceData->GetInt("hasStarCount");
+	m_bHasItem = inResourceData->GetInt("hasItem");
+	m_bIsLocked = inResourceData->GetInt("isLocked");
+	m_pszIconName = inResourceData->GetString("iconName");
+
+	UpdateStateVisuals();
 }
 
 void CSoloNodePanel::PerformLayout()
 {
-	if (!m_bBaselineSet)
-	{
-		UpdateStateVisuals(NULL);
-	}
+	
 }
 
-void CSoloNodePanel::UpdateStateVisuals(KeyValues* pKVParams)
+void CSoloNodePanel::UpdateStateVisuals()
 {
-	bool bEffects = pKVParams && pKVParams->GetBool("effects", false);
-
-	//auto pDef = GetNodeDef();
-	//const CQuestMapNode* pNode = GetQuestMapHelper().GetQuestMapNode(m_msgLocalState.defindex());
+	//bool bEffects = pKVParams && pKVParams->GetBool("effects", false);
 
 	Color colorActive = vgui::scheme()->GetIScheme(GetScheme())->GetColor("QuestMap_ActiveOrange", Color(255, 255, 255, 255));
 	ImagePanel* pIcon = FindControl< ImagePanel >("NodeIcon");
-
-	// The node will have a different icon than the definition based on which
-	// contract the user selects
-	//if (pNode)
-	//{
-		//pIcon->SetImage(pNode->GetIconName());
-	//}
-	//else
-	//{
-		//pIcon->SetImage(pDef->GetIconName());
-	//}
+	pIcon->SetImage(m_pszIconName);
 
 	//bool bNewRequirementsMetState = pNode || pDef->BCanUnlock(GetQuestMapHelper());
-	bool bNewRequirementsMetState = true;
+	/*
+	bool bNewRequirementsMetState = false;
 	if (bNewRequirementsMetState && !m_bRequirementsMet && bEffects)
 	{
 		//PlaySoundEntry("CYOA.ObjectivePanelExpand");
@@ -142,15 +124,17 @@ void CSoloNodePanel::UpdateStateVisuals(KeyValues* pKVParams)
 
 	}
 	m_bRequirementsMet = bNewRequirementsMetState;
+	*/
 
 	//pIcon->SetDrawColor(pNode ? colorActive : Color(100, 100, 100, 255));
 	pIcon->SetDrawColor(Color(100, 100, 100, 255));
-	SetControlVisible("LockedIcon", false);//!pNode && !pDef->BCanUnlock(GetQuestMapHelper()));
-	SetControlVisible("ItemIcon", false); //(pDef->GetRewardItem()) && (!pNode || !pNode->BHasLootBeenClaimed()));
-	SetControlVisible("CashIcon", false);// !pNode || !pNode->BHasLootBeenClaimed());
-	SetControlVisible("StarCount", false, true); // !pNode, true);
+	SetControlVisible("LockedIcon", m_bIsLocked);
+	SetControlVisible("ItemIcon", m_bHasItem);
+	SetControlVisible("CashIcon", m_nCreditsType != 0);
+	SetControlVisible("StarCount", m_nStarCount != 0, true);
 
 	{
+		m_pNameLabel->SetText(m_pszNodeText);
 		//if (pNode)
 		//{
 			//m_pNameLabel->SetText(g_pVGuiLocalize->Find(pDef->GetNameLocToken()));
@@ -166,6 +150,7 @@ void CSoloNodePanel::UpdateStateVisuals(KeyValues* pKVParams)
 		//}
 
 		//m_pStarCostImage->SetVisible(!pNode);
+		m_pStarCostImage->SetVisible(false);
 	}
 
 	/*switch (pDef->GetCashRewardType())
@@ -175,6 +160,7 @@ void CSoloNodePanel::UpdateStateVisuals(KeyValues* pKVParams)
 	case CASH_REWARD_SMALL: SetDialogVariable("cash", "$"); break;
 	case CASH_REWARD_NONE: SetDialogVariable("cash", ""); break;
 	}*/
+	SetDialogVariable("cash", "$");
 
 	Label* pCashIcon = FindControl< Label >("CashIcon");
 	Panel* pItemIcon = FindChildByName("ItemIcon");
@@ -182,7 +168,11 @@ void CSoloNodePanel::UpdateStateVisuals(KeyValues* pKVParams)
 	{
 		pCashIcon->SizeToContents();
 		int nRewardsWide = pCashIcon->GetWide() + (pItemIcon->IsVisible() ? pItemIcon->GetWide() : 0);
-		//int nCashWide = pDef->GetCashRewardType() == CASH_REWARD_NONE ? 0 : pCashIcon->GetWide();
+		int nCashWide = pCashIcon->GetWide();
+		if (m_nCreditsType == 0)
+		{
+			nCashWide = 0;
+		}
 		pCashIcon->SetPos(GetWide() * 0.5f - nRewardsWide * 0.5f, pCashIcon->GetYPos());
 		pItemIcon->SetPos(pCashIcon->GetXPos() + pCashIcon->GetWide(), pItemIcon->GetYPos());
 	}
@@ -223,7 +213,7 @@ void CSoloNodePanel::DrawNode(float flXPos,
 	DrawFilledColoredCircle(flXPos, flYPos, flMediumRadius + YRES(1), colorBlack);
 
 	//auto pDef = GetNodeDef();
-	int nNumSegments = 0;
+	int nNumSegments = 1;
 	//for (int i = 0; i < EQuestPoints_ARRAYSIZE; ++i)
 	//{
 		//if (pDef->BIsMedalOffered((EQuestPoints)i))
@@ -382,19 +372,6 @@ void CSoloNodePanel::OnCommand(const char* pCommand)
 	}
 }
 
-//void CSoloNodePanel::UpdateFromSObject(const CQuestMapNode* pMapNode)
-//{
-//	if (pMapNode)
-//	{
-//		m_msgLocalState = pMapNode->Obj();
-//	}
-//}
-//
-//const CQuestMapNodeDefinition* CSoloNodePanel::GetNodeDef() const
-//{
-//	return (const CQuestMapNodeDefinition*)GetProtoScriptObjDefManager()->GetDefinition(ProtoDefID_t(DEF_TYPE_QUEST_MAP_NODE, m_msgLocalState.defindex()));
-//}
-
 void CSoloNodePanel::EnterMapState(EMapState eMapState)
 {
 	if (m_eMapState == eMapState)
@@ -434,6 +411,3 @@ void CSoloNodePanel::EnterMapState(EMapState eMapState)
 	m_flMapStateEnterTime = Plat_FloatTime();
 }
 
-BEGIN_SCRIPTDESC_ROOT(CSoloNodePanel, "Used to access a solo map node panel")
-	DEFINE_SCRIPTFUNC(BRequirementsMet, "")
-END_SCRIPTDESC();

@@ -52,6 +52,7 @@ TFSOLO.Screen <- class
 	function OnExit()
 	{
 	}
+	function _tostring() return this.Name
 }
 
 IncludeScript("client/solo/vgui/screens/test.nut")

@@ -49,6 +49,7 @@ TFSOLO.Cutscene <- class
 	Coroutine = null
 	
 	constructor() { }
+	function _tostring() return this.Name
 }
 
 IncludeScript("client/solo/vgui/cutscenes/test.nut")

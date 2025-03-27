@@ -427,6 +427,9 @@ DEFINE_SCRIPTFUNC(SetTextConst, "")
 END_SCRIPTDESC();
 BEGIN_SCRIPTDESC(Button, Panel, "")
 END_SCRIPTDESC();
+BEGIN_SCRIPTDESC_ROOT(CSoloNodePanel, "")
+DEFINE_SCRIPTFUNC(UpdateStateVisuals, "")
+END_SCRIPTDESC();
 
 void CSoloPanel::ClearAllScriptPanels()
 {
@@ -600,6 +603,14 @@ HSCRIPT CSoloPanel::CreatePanelInternal(HSCRIPT hTable, Panel* hParentTarget)
 		Button* pVideo = new Button(hParent, pszControlName, (const char*)NULL, this);
 		pPanel = pVideo;
 		pDesc = GetScriptDescForClass(Button);
+	}
+	else if (FStrEq(pszPanelType, "CSoloNodePanel"))
+	{
+		CSoloNodePanel* pNode = new CSoloNodePanel(hParent, "SoloNode");
+		pPanel = pNode;
+		pDesc = GetScriptDescForClass(CSoloNodePanel);
+		pNode->MakeReadyForUse();
+		pNode->AddActionSignalTarget(this);
 	}
 	else
 	{

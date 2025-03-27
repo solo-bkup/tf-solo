@@ -1167,6 +1167,7 @@ void CHudMainMenuOverride::OnMainMenuStabilized()
 	{
 		gameeventmanager->FireEventClientSide( event );
 	}
+	engine->ClientCmd_Unrestricted("sv_use_steam_networking 0");
 }
 
 //-----------------------------------------------------------------------------
