@@ -63,6 +63,9 @@ public:
 	void AddRegion(EditablePanel* pRegionPanel, uint32 nDefIndex);
 	void RemoveRegion(uint32 nDefIndex);
 	void SetActiveRegion(EditablePanel* pRegionPanel) { m_pActiveRegionLinkPanel = pRegionPanel; }
+	void ResetVisuals();
+	void ClearScriptPaths();
+	int AddScriptPath(int startX, int startY, int endX, int endY, bool dashed, bool active, bool arrows);
 
 	CSoloCircleDrawingHelper& GetCircleDrawer() { return m_circleDrawer; }
 
@@ -74,6 +77,24 @@ public:
 
 private:
 
+	enum eSoloPathTypes
+	{
+		SoloPathType_Normal = 0,
+		SoloPathType_Dashed,
+	};
+
+	struct ScriptPathData
+	{
+		int StartX;
+		int StartY;
+		int EndX;
+		int EndY;
+		bool DrawDashed;
+		bool IsActive;
+		bool DrawArrows;
+	};
+
+	CUtlVector< ScriptPathData > m_scriptPaths;
 	CSoloCircleDrawingHelper m_circleDrawer;
 	CUtlMap< uint32, EditablePanel* > m_mapRegionLinkPanels;
 	EditablePanel* m_pActiveRegionLinkPanel = nullptr;

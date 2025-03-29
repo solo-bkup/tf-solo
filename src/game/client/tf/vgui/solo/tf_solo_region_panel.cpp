@@ -152,227 +152,116 @@ void CSoloPathsPanel::Paint()
 	const float flDashLength = tf_quest_map_region_line_dash_length / (2000.f / GetWide()) * m_flZoomScale;
 	const float flDashGapLength = tf_quest_map_region_line_dash_gap_length / (2000.f / GetWide()) * m_flZoomScale;
 
-	//
-	// Go through each node within this region, then go through each of that node's connected nodes, and draw
-	// a line between them to illustrate their logical connection.  Some nodes are in different regions and we
-	// represent that relationship as a dashed line going from node to region link (or off the side if it's "above")
-	//
-	FOR_EACH_MAP_FAST(m_mapQuestNodes, i)
+	FOR_EACH_VEC(m_scriptPaths, i)
 	{
-		CUtlMap< uint32, bool > mapOutConnectedNodeCondition(DefLessFunc(uint32));
+		auto ScriptData = m_scriptPaths[i];
 
-		CSoloNodePanel* pNodePanel = m_mapQuestNodes[i];
+		Color colorToDraw = ScriptData.IsActive ? colorActive : colorInactive;
 
-		auto lambdaBrightenIfSelected = [&](CSoloNodePanel* pStartNodepanel, Color& colorToModify)
+		vgui::Vertex_t start, end;
+		vgui::surface()->DrawSetColor(colorToDraw);
+		start.Init(Vector2D(ScriptData.StartX, ScriptData.StartY), Vector2D(0, 0));
+		end.Init(Vector2D(ScriptData.EndX, ScriptData.EndY), Vector2D(1, 1));
+
+		if (ScriptData.DrawDashed)
 		{
-			if (pStartNodepanel->GetState() == CSoloNodePanel::SELECTED ||
-				pStartNodepanel->GetState() == CSoloNodePanel::MOUSE_OVER)
+			Vector2D vecStart(Vector2D(ScriptData.StartX, ScriptData.StartY));
+			Vector2D vecEnd;
+			Vector2D vecRegionLinkCenter(-1000, -1000);
+
+			vecEnd.Init(ScriptData.EndX, ScriptData.EndY);
+			vecRegionLinkCenter.Init(GetXPos() + (GetWide() / 2), GetYPos() + (GetTall() / 2));
+
+			Vector2D vecDir = vecEnd - vecStart;
+			float flLength = vecDir.NormalizeInPlace();
+
+			bool bContinue = true;
+
+			if (ScriptData.DrawArrows)
 			{
-				BrigthenColor(colorToModify, 100);
+				// Now we want to draw a direction indicator
+				PaintDirectionArrow(vecStart, vecDir, flLength, [&](float flPercent)
+				{
+					colorToDraw.SetColor(colorToDraw.r(), colorToDraw.g(), colorToDraw.b(), RemapValClamped(flPercent, 0.5, 1, 255, 0));
+					vgui::surface()->DrawSetColor(colorToDraw);
+				});
 			}
-		};
 
-		// Draw the ambient active circle if this is the active node
-		//const CQuest* pQuest = GetQuestMapHelper().GetQuestForNode(pNodePanel->GetLocalState().node_id());
-		//const CQuestMapNodeDefinition* pNodeDef = pNodePanel->GetNodeDef();
-		/*if (GetQuestMapHelper().BCanNodeBeTurnedIn(pNodeDef->GetDefIndex()))
-		{
-			const Color& colorTurnIn = vgui::scheme()->GetIScheme(GetScheme())->GetColor("CreditsGreen", Color(255, 255, 255, 255));
-			DrawAmbientActiveCirlceSolo(pNodePanel->GetXPos() + pNodePanel->GetWide() * 0.5f,
-				pNodePanel->GetYPos() + pNodePanel->GetTall() * 0.5f,
-				colorTurnIn);
-		}
-		else if (pQuest && pQuest->Obj().active())
-		{
-			DrawAmbientActiveCirlceSolo(pNodePanel->GetXPos() + pNodePanel->GetWide() * 0.5f,
-				pNodePanel->GetYPos() + pNodePanel->GetTall() * 0.5f,
-				colorActive);
-
-		}*/
-
-
-
-		//const EdgeVec_t& vecEdges = pNodeDef->GetLinkedNodes();
-
-		/*
-		FOR_EACH_VEC(vecEdges, j)
-		{
-			const Edges_t& edge = vecEdges[j];
-			const CQuestMapNodeDefinition* pLinkedNodeDef = edge.m_pNode;
-
-			// We don't want to double-draw any lines, so check if this node-pair has been drawn already
-			uint64 key = GetNodeDefPairKey(pNodeDef->GetDefIndex(), pLinkedNodeDef->GetDefIndex());
-			auto drawnidx = vecDrawnPaths.Find(key);
-			if (drawnidx != vecDrawnPaths.InvalidIndex())
-				continue;
-
-			// Not drawn yet, but we're about to.  Mark it for future iteration
-			vecDrawnPaths.AddToTail(key);
-
-			bool bAvailable = GetQuestMapHelper().BIsNodeConnectionFulfilled(pNodeDef, pLinkedNodeDef);
-
-			auto idx = m_mapQuestNodes.Find(pLinkedNodeDef->GetDefIndex());
-			if (idx != m_mapQuestNodes.InvalidIndex())
+			// Draw dashes from the start to the end
+			while (bContinue)
 			{
-				//
-				// This is the easy case.  The node is within this region so we'll just draw a line to it
-				//
-				CSoloNodePanel* pRelatedPanel = m_mapQuestNodes[idx];
+				// Where the dash ends
+				Vector2D vecDashEnd = vecStart + vecDir * flDashLength;
+				float flDistRemaining = (vecEnd - vecDashEnd).Length();
 
-				CSoloNodePanel* pStartNode = edge.m_eConnection == CONNECTS_TO ? pNodePanel : pRelatedPanel;
-				CSoloNodePanel* pEndNode = edge.m_eConnection == CONNECTS_TO ? pRelatedPanel : pNodePanel;
+				// We want to fade the dash line out if we're passing through a region link panel (helps the link panel real better)
+				float flDistToLinkCenter = (vecDashEnd - vecRegionLinkCenter).Length();
 
-				Color colorToDraw = bAvailable ? colorActive : colorInactive;
-
-				// Brighten up if the start node is selected
-				lambdaBrightenIfSelected(pStartNode, colorToDraw);
-
-				Assert(pStartNode != pEndNode);
-
-				// Different color if the connection is fulfilled
-				vgui::Vertex_t start, end;
+				colorToDraw.SetColor(colorToDraw.r(), colorToDraw.g(), colorToDraw.b(), RemapValClamped(flDistToLinkCenter, 20, 120, 0, 255));
 				vgui::surface()->DrawSetColor(colorToDraw);
 
-				// Draw a line from the center of the starting node to the center of the related node
-				start.Init(Vector2D(pStartNode->GetXPos() + (pStartNode->GetWide() / 2), pStartNode->GetYPos() + (pStartNode->GetTall() / 2)), Vector2D(0, 0));
-				end.Init(Vector2D(pEndNode->GetXPos() + (pEndNode->GetWide() / 2), pEndNode->GetYPos() + (pEndNode->GetTall() / 2)), Vector2D(1, 1));
+				// Draw the dash
+				start.Init(vecStart, Vector2D(0, 0));
+				end.Init(vecDashEnd, Vector2D(1, 1));
 				SoftLine::DrawPolygonLine(start, end, 5);
 
-				// Draw directional arrows
+				// If we're close enough, or went of the edge of the screen, then we can stop
+				if (flDistRemaining < flDashLength || vecDashEnd.x < 0 || vecDashEnd.y < 0 || vecDashEnd.x > GetWide() || vecDashEnd.y > GetTall())
+				{
+					bContinue = false;
+				}
+				else
+				{
+					// Step towards our goal
+					vecStart += vecDir * flDashLength; // The dash
+					vecStart += vecDir * flDashGapLength;// The gap
+				}
+			}
+		}
+		else
+		{
+			SoftLine::DrawPolygonLine(start, end, 5);
+
+			// Draw directional arrows
+			if (ScriptData.DrawArrows)
+			{
 				Vector2D vecDir(end.m_Position - start.m_Position);
 				vec_t flLength = vecDir.NormalizeInPlace();
 				PaintDirectionArrow(start.m_Position, vecDir, flLength, [](float) {});
 			}
-			else
-			{
-				//
-				// The not-so-easy case.  The node is in a different region.  It could be "above" or "below" us.
-				// Either way, we need to figure out the relation of the region link to the node and draw a dashed
-				// line between
-				//
-
-				Vector2D vecStart(Vector2D(pNodePanel->GetXPos() + (pNodePanel->GetWide() / 2), pNodePanel->GetYPos() + (pNodePanel->GetTall() / 2)));
-				Vector2D vecEnd;
-				Vector2D vecRegionLinkCenter(-1000, -1000);
-
-				bool bDrawArrow = true;
-
-				auto regionidx = m_mapRegionLinkPanels.Find(pLinkedNodeDef->GetRegionDefIndex());
-				if (regionidx == m_mapRegionLinkPanels.InvalidIndex())
-				{
-					//
-					// The very not-so-easy case.  The node is above us, which means we don't have a link to view that
-					// region.  So what we're going to do is go to the region that owns the other node, then get the vector
-					// from the other node to the link of our current region, then draw THAT line off the edge of the map
-					// with a dash to represent that it's beyond the scope of this region.
-					//
-
-					// Our region containing the other node
-					const CSoloRegionPanel* pOuterRegionPanel = GetQuestMapPanel()->GetRegionPanel(pLinkedNodeDef->GetRegionDefIndex());
-					if (!pOuterRegionPanel)
-						continue;
-
-					// The other node's panel
-					const CSoloNodePanel* pOuterNodePanel = pOuterRegionPanel->GetNodePanel(pLinkedNodeDef->GetDefIndex());
-					if (!pOuterNodePanel)
-						continue;
-
-					// The current region's region link panel
-					const EditablePanel* pLinkPanel = pOuterRegionPanel->GetRegionLinkPanel(pNodeDef->GetRegionDefIndex());
-					if (!pLinkPanel)
-						continue;
-
-					int x, y;
-					// Get the node's center
-					CSoloNodePanel* pNonConstOuterNodePanel = const_cast<CSoloNodePanel*>(pOuterNodePanel);
-					pNonConstOuterNodePanel->GetPos(x, y);
-					x += pNonConstOuterNodePanel->GetWide() / 2;
-					y += pNonConstOuterNodePanel->GetTall() / 2;
-					Vector2D vecLinkPos(x, y);
-
-					// Get the region link's dot spot
-					GetRegionLinkDotSpot(pLinkPanel, x, y);
-					Vector2D vecLinkNodePos(x, y);
-
-					// Get the vector between
-					Vector2D vecLinkDir = vecLinkPos - vecLinkNodePos;
-
-					// Make a generous target along that path
-					vecEnd = vecStart + (vecLinkDir * 10);
-					bDrawArrow = false;
-				}
-				else
-				{
-					// Not too tricky.  The other node is within a region that we have a link to.  Just draw a dashed
-					// line to the region link.
-					EditablePanel* pRelatedPanel = m_mapRegionLinkPanels[regionidx];
-					int x, y;
-					GetRegionLinkDotSpot(pRelatedPanel, x, y);
-					vecEnd.Init(x, y);
-					vecRegionLinkCenter.Init(pRelatedPanel->GetXPos() + (pRelatedPanel->GetWide() / 2), pRelatedPanel->GetYPos() + (pRelatedPanel->GetTall() / 2));
-				}
-
-				vgui::Vertex_t start, end;
-
-				// Draw a line from the center of the starting node to the center of the related node
-				Vector2D vecDir = vecEnd - vecStart;
-				float flLength = vecDir.NormalizeInPlace();
-
-				Color colorDashLine = bAvailable ? colorActive : colorInactive;
-
-
-				if (bDrawArrow)
-				{
-					// Brighten up if we're highlighted
-					lambdaBrightenIfSelected(pNodePanel, colorDashLine);
-
-					// Now we want to draw a direction indicator
-					PaintDirectionArrow(vecStart, vecDir, flLength, [&](float flPercent)
-					{
-						colorDashLine.SetColor(colorDashLine.r(), colorDashLine.g(), colorDashLine.b(), RemapValClamped(flPercent, 0.5, 1, 255, 0));
-						vgui::surface()->DrawSetColor(colorDashLine);
-					});
-				}
-
-				bool bContinue = true;
-
-				// Draw dashes from the start to the end
-				while (bContinue)
-				{
-					// Where the dash ends
-					Vector2D vecDashEnd = vecStart + vecDir * flDashLength;
-					float flDistRemaining = (vecEnd - vecDashEnd).Length();
-
-					// We want to fade the dash line out if we're passing through a region link panel (helps the link panel real better)
-					float flDistToLinkCenter = (vecDashEnd - vecRegionLinkCenter).Length();
-
-					colorDashLine.SetColor(colorDashLine.r(), colorDashLine.g(), colorDashLine.b(), RemapValClamped(flDistToLinkCenter, 20, 120, 0, 255));
-					vgui::surface()->DrawSetColor(colorDashLine);
-
-					// Draw the dash
-					start.Init(vecStart, Vector2D(0, 0));
-					end.Init(vecDashEnd, Vector2D(1, 1));
-					SoftLine::DrawPolygonLine(start, end, 5);
-
-					// If we're close enough, or went of the edge of the screen, then we can stop
-					if (flDistRemaining < flDashLength || vecDashEnd.x < 0 || vecDashEnd.y < 0 || vecDashEnd.x > GetWide() || vecDashEnd.y > GetTall())
-					{
-						bContinue = false;
-					}
-					else
-					{
-						// Step towards our goal
-						vecStart += vecDir * flDashLength; // The dash
-						vecStart += vecDir * flDashGapLength;// The gap
-					}
-				}
-			}
 		}
-		*/
 	}
 
 	m_circleDrawer.PaintCircles();
 }
+
+void CSoloPathsPanel::ResetVisuals()
+{
+	m_bDrawActiveCircle = false;
+	m_bDrawGrid = false;
+	m_scriptPaths.Purge();
+}
+
+void CSoloPathsPanel::ClearScriptPaths()
+{
+	m_scriptPaths.Purge();
+}
+
+int CSoloPathsPanel::AddScriptPath(int startX, int startY, int endX, int endY, bool dashed, bool active, bool arrows)
+{
+	int index = m_scriptPaths.Count();
+	ScriptPathData PathData;
+	PathData.StartX = startX;
+	PathData.StartY = startY;
+	PathData.EndX = endX;
+	PathData.EndY = endY;
+	PathData.DrawDashed = dashed;
+	PathData.DrawArrows = arrows;
+	PathData.IsActive = active;
+	m_scriptPaths.AddToTail(PathData);
+	return index;
+}
+
 
 void CSoloPathsPanel::AddNode(CSoloNodePanel* pNodePanel)
 {
@@ -381,17 +270,17 @@ void CSoloPathsPanel::AddNode(CSoloNodePanel* pNodePanel)
 
 void CSoloPathsPanel::RemoveNode(uint32 nDefindex)
 {
-	m_mapQuestNodes.RemoveAt(m_mapQuestNodes.Find(nDefindex));
+	//m_mapQuestNodes.RemoveAt(m_mapQuestNodes.Find(nDefindex));
 }
 
 void CSoloPathsPanel::AddRegion(EditablePanel* pRegionPanel, uint32 nDefIndex)
 {
-	m_mapRegionLinkPanels.Insert(nDefIndex, pRegionPanel);
+	//m_mapRegionLinkPanels.Insert(nDefIndex, pRegionPanel);
 }
 
 void CSoloPathsPanel::RemoveRegion(uint32 nDefIndex)
 {
-	m_mapRegionLinkPanels.RemoveAt(m_mapRegionLinkPanels.Find(nDefIndex));
+	//m_mapRegionLinkPanels.RemoveAt(m_mapRegionLinkPanels.Find(nDefIndex));
 }
 
 //-----------------------------------------------------------------------------

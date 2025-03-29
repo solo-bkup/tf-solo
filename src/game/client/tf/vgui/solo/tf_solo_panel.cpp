@@ -170,6 +170,10 @@ void CSoloPanel::SetVisible(bool bVisible)
 		if (!g_pScriptVM->Has("SoloPanel"))
 		{
 			g_pScriptVM->RegisterInstance(this, "SoloPanel");
+			if (m_pPathsPanel)
+			{
+				m_pPathsPanel->ResetVisuals();
+			}
 		}
 		m_pQuestNodeViewPanel->SetVisible(false);
 		RunScriptHook("solopanel_open", NULL);
@@ -294,6 +298,22 @@ int CSoloPanel::GetScreenHeight()
 	return ScreenWidth();
 }
 
+void CSoloPanel::ClearNodePaths() 
+{
+	if (m_pPathsPanel)
+	{
+		m_pPathsPanel->ClearScriptPaths();
+	}
+}
+int CSoloPanel::AddNodePath(int startX, int startY, int endX, int endY, bool dashed, bool active, bool arrows)
+{
+	if (m_pPathsPanel)
+	{
+		return m_pPathsPanel->AddScriptPath(startX, startY, endX, endY, dashed, active, arrows);
+	}
+	return -1;
+}
+
 BEGIN_SCRIPTDESC_ROOT(CSoloPanel, SCRIPT_SINGLETON "Used to access the main solo interface")
 
 DEFINE_SCRIPTFUNC(ForceOpen, "")
@@ -315,6 +335,8 @@ DEFINE_SCRIPTFUNC(SetDrawActiveCircle, "")
 DEFINE_SCRIPTFUNC(SetDrawGrid, "")
 DEFINE_SCRIPTFUNC(GetScreenWidth, "")
 DEFINE_SCRIPTFUNC(GetScreenHeight, "")
+DEFINE_SCRIPTFUNC(ClearNodePaths, "")
+DEFINE_SCRIPTFUNC(AddNodePath, "")
 
 END_SCRIPTDESC();
 

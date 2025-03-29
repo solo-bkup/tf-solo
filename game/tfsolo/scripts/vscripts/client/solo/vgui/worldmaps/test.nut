@@ -52,6 +52,28 @@ TFSOLO.WorldMaps.TestClass <- class extends TFSOLO.WorldMap
 		PosX += SizeX / 2.0
 		PosY += (SizeY / 2.0) - 46
 		SoloPanel.SetActiveCirclePos(PosX, PosY)
+		
+		local PosX1 = Nodes[0].Panel.GetXPos()
+		local PosY1 = Nodes[0].Panel.GetYPos()
+		local SizeX1 = Nodes[0].Panel.GetWide()
+		local SizeY1 = Nodes[0].Panel.GetTall()
+		local PosX2 = Nodes[1].Panel.GetXPos()
+		local PosY2 = Nodes[1].Panel.GetYPos()
+		local SizeX2 = Nodes[1].Panel.GetWide()
+		local SizeY2 = Nodes[1].Panel.GetTall()
+		local PosX3 = Nodes[2].Panel.GetXPos()
+		local PosY3 = Nodes[2].Panel.GetYPos()
+		local SizeX3 = Nodes[2].Panel.GetWide()
+		local SizeY3 = Nodes[2].Panel.GetTall()
+		PosX1 += SizeX1 / 2.0
+		PosY1 += (SizeY1 / 2.0) - 46
+		PosX2 += SizeX2 / 2.0
+		PosY2 += (SizeY2 / 2.0) - 46
+		PosX3 += SizeX3 / 2.0
+		PosY3 += (SizeY3 / 2.0) - 46
+		SoloPanel.AddNodePath(PosX2, PosY2, PosX1, PosY1, false, true, true)
+		SoloPanel.AddNodePath(PosX2, PosY2, PosX3, PosY3, true, false, true)
+		SoloPanel.AddNodePath(PosX2, PosY2, PosX2 - 160, PosY2 + 160, false, true, false)
 	}
 }
 TFSOLO.WorldMaps.Test <- TFSOLO.WorldMaps.TestClass()

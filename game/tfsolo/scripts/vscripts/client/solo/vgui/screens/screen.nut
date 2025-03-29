@@ -49,6 +49,7 @@ TFSOLO.Screen <- class
 	{
 		SoloPanel.SetDrawGrid(false)
 		SoloPanel.SetDrawActiveCircle(false)
+		SoloPanel.ClearNodePaths()
 		SoloPanel.HideMainTooltip()
 		OnExit()
 	}
