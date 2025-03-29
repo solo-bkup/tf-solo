@@ -22,5 +22,27 @@ TFSOLO.WorldMaps.TestClass <- class extends TFSOLO.WorldMap
 		Nodes.push(Node2)
 		Nodes.push(Node3)
 	}
+	
+	function OnEnter()
+	{
+		local kvRegionLink = {
+			ControlName		="EditablePanel"
+			fieldName		="Link"
+			xpos			="cs-0.5-50"
+			ypos			="cs-0.5+100"
+			ControlSettings ="Resource/UI/solo/SoloRegionLink.res"
+		}
+		local LinkPanel = SoloPanel.CreatePanelRoot(kvRegionLink)
+		LinkPanel.SetDialogVariable("link_region_name", "Test Region Link")
+		LinkPanel.SetDialogVariable("completed", "Completed: None so far")
+		LinkPanel.SetDialogVariable("available", "Available: Also none")
+		LinkPanel.SetControlVisible("ActiveLabel", false, true)
+		local LinkButton = SoloPanel.FindPanel(LinkPanel, "LinkRegionNameButton")
+		SoloPanel.AddActionSignalTargetForPanel(LinkButton)
+		LinkButton.SetCommand("close")
+		local nTall = LinkButton.GetTall()
+		LinkButton.SizeToContents()
+		LinkButton.SetTall(nTall)
+	}
 }
 TFSOLO.WorldMaps.Test <- TFSOLO.WorldMaps.TestClass()
