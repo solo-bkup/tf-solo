@@ -136,6 +136,22 @@
 			"enabled"		"1"
 			"tabPosition"	"0"
 			"paintborder"		"0"
+			
+			"PathsPanel"
+			{
+				//"ControlName"	"CSoloPathsPanel"
+				"fieldName"		"PathsPanel"
+				"xpos"			"0"
+				"ypos"			"0"
+				"zpos"			"2"
+				"wide"			"f0"
+				"tall"			"f0"
+				"visible"		"1"
+				"enabled"		"1"
+				"proportionaltoparent" "1"
+				"mouseinputenabled"		"0"
+				"keyboardinputenabled"	"0"
+			}
 
 			"MapAreaPanel"
 			{

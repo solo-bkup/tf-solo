@@ -14,6 +14,7 @@
 #include "tf_playermodelpanel.h"
 #include "vscript_client.h"
 #include "vscript_utils.h"
+#include "softline.h"
 
 class CSoloTooltip : public CTFTextToolTip
 {
@@ -50,8 +51,6 @@ CSoloPanel::CSoloPanel(Panel* pParent, const char* pszPanelName)
 	// So we can paint the radio needle *on top* of our children
 	SetPostChildPaintEnabled(true);
 
-	//m_currentRegion.set_type(DEF_TYPE_QUEST_MAP_REGION);
-
 	if (g_pVGuiLocalize)
 	{
 		g_pVGuiLocalize->AddFile("resource/tf_quests_%language%.txt");
@@ -76,6 +75,8 @@ CSoloPanel::CSoloPanel(Panel* pParent, const char* pszPanelName)
 	m_pMainContainer = new EditablePanel(this, "MainContainer");
 
 	m_pMapAreaPanel = new EditablePanel(m_pMainContainer, "MapAreaPanel");
+
+	m_pPathsPanel = new CSoloPathsPanel(m_pMainContainer, "PathsPanel");
 
 	// Quest objective tooltip
 	m_pQuestObjectiveTooltip = new CSoloObjectiveTooltip(m_pMapAreaPanel, "ObjectiveTooltip");
@@ -152,23 +153,7 @@ void CSoloPanel::ChangeScreenDisplay(EScreenDisplay eScreen)
 	if (eScreen == m_eScreenDisplay)
 		return;
 	m_eScreenDisplay = eScreen;
-	PlayTransitionScreenEffects();
 	InvalidateLayout();
-}
-
-void CSoloPanel::UpdateIntroState()
-{
-
-}
-
-void CSoloPanel::PerformLayout()
-{
-	BaseClass::PerformLayout();
-}
-
-void CSoloPanel::PostChildPaint()
-{
-	BaseClass::PostChildPaint();
 }
 
 void CSoloPanel::SetVisible(bool bVisible)
@@ -196,16 +181,6 @@ void CSoloPanel::SetVisible(bool bVisible)
 	}
 }
 
-void CSoloPanel::PlayTransitionScreenEffects()
-{
-	PlaySoundEntry("CYOA.StaticFade");
-}
-
-void CSoloPanel::QueueTurnInAnims()
-{
-	
-}
-
 void CSoloPanel::FireGameEvent(IGameEvent* event)
 {
 	if (FStrEq(event->GetName(), "gameui_hidden"))
@@ -215,59 +190,9 @@ void CSoloPanel::FireGameEvent(IGameEvent* event)
 	}
 }
 
-void CSoloPanel::UpdatePassAdPanel()
-{
-	
-}
-
-void CSoloPanel::RegionSelected(KeyValues* pParams)
-{
-
-}
-
-void CSoloPanel::RegionBackout()
-{
-	
-}
-
-void CSoloPanel::DisableMouseBlocker()
-{
-	
-}
-
-
-void CSoloPanel::FireTurnInStateEvent(KeyValues* pParams)
-{
-	
-}
-
 void CSoloPanel::OnPlaySoundEntry(KeyValues* pParams)
 {
 	PlaySoundEntry(pParams->GetString("sound"));
-}
-
-void CSoloPanel::MapStateChangeSequence()
-{
-	
-}
-
-void CSoloPanel::OnCursorEntered()
-{
-	UpdateIntroState();
-}
-
-void CSoloPanel::OnCursorExited()
-{
-	UpdateIntroState();
-}
-
-const CSoloRegionPanel* CSoloPanel::GetRegionPanel(uint32 nRegionDefIndex) const
-{
-	auto idx = m_mapRegions.Find(nRegionDefIndex);
-	if (idx == m_mapRegions.InvalidIndex())
-		return NULL;
-
-	return m_mapRegions[idx];
 }
 
 void CSoloPanel::UpdateControls(bool bIgnoreInvalidLayout)
@@ -278,17 +203,6 @@ void CSoloPanel::UpdateControls(bool bIgnoreInvalidLayout)
 	m_bMapLoaded = true;
 
 	InvalidateLayout();
-}
-
-
-void CSoloPanel::UpdateStarsGlobalStatus()
-{
-	
-}
-
-void CSoloPanel::UpdateRegionVisibility()
-{
-	
 }
 
 void CSoloPanel::GoToCurrentQuest()
@@ -337,6 +251,49 @@ void CSoloPanel::RunAnimationScript(const char* pszScript, bool bCanBeCancelled)
 	g_pClientMode->GetViewportAnimationController()->RunScript(pszScript, this, bCanBeCancelled);
 }
 
+void CSoloPanel::SetActiveCirclePos(int PosX, int PosY)
+{
+	if (m_pPathsPanel)
+	{
+		m_pPathsPanel->m_bDrawActiveCircle = true;
+		m_pPathsPanel->m_ActiveCirclePosX = PosX;
+		m_pPathsPanel->m_ActiveCirclePosY = PosY;
+	}
+}
+
+void CSoloPanel::SetDrawActiveCircle(bool mVal)
+{
+	if (m_pPathsPanel)
+	{
+		m_pPathsPanel->m_bDrawActiveCircle = mVal;
+	}
+}
+
+void CSoloPanel::SetDrawGrid(bool mVal)
+{
+	if (m_pPathsPanel)
+	{
+		m_pPathsPanel->m_bDrawGrid = mVal;
+	}
+}
+
+void CSoloPanel::SetGridScale(float mVal)
+{
+	if (m_pPathsPanel)
+	{
+		m_pPathsPanel->m_flZoomScale = mVal;
+	}
+}
+
+int CSoloPanel::GetScreenWidth()
+{
+	return ScreenWidth();
+}
+int CSoloPanel::GetScreenHeight()
+{
+	return ScreenWidth();
+}
+
 BEGIN_SCRIPTDESC_ROOT(CSoloPanel, SCRIPT_SINGLETON "Used to access the main solo interface")
 
 DEFINE_SCRIPTFUNC(ForceOpen, "")
@@ -352,6 +309,12 @@ DEFINE_SCRIPTFUNC(PrepareForLevelLoad, "")
 DEFINE_SCRIPTFUNC(FindPanelRoot, "")
 DEFINE_SCRIPTFUNC(FindPanel, "")
 DEFINE_SCRIPTFUNC(AddActionSignalTargetForPanel, "")
+DEFINE_SCRIPTFUNC(SetActiveCirclePos, "")
+DEFINE_SCRIPTFUNC(SetActiveCirclePanelPos, "")
+DEFINE_SCRIPTFUNC(SetDrawActiveCircle, "")
+DEFINE_SCRIPTFUNC(SetDrawGrid, "")
+DEFINE_SCRIPTFUNC(GetScreenWidth, "")
+DEFINE_SCRIPTFUNC(GetScreenHeight, "")
 
 END_SCRIPTDESC();
 
@@ -362,19 +325,19 @@ DEFINE_SCRIPTFUNC(GetName, "")
 DEFINE_SCRIPTFUNC(GetClassName, "")
 DEFINE_SCRIPTFUNC(MakeReadyForUse, "")
 DEFINE_SCRIPTFUNC(SetPos, "")
-//DEFINE_SCRIPTFUNC(GetPos, "")
+
 DEFINE_SCRIPTFUNC(GetXPos, "")
 DEFINE_SCRIPTFUNC(GetYPos, "")
 DEFINE_SCRIPTFUNC(SetSize, "")
-//DEFINE_SCRIPTFUNC(GetSize, "")
+
 DEFINE_SCRIPTFUNC(SetBounds, "")
-//DEFINE_SCRIPTFUNC(GetBounds, "")
+
 DEFINE_SCRIPTFUNC(GetWide, "")
 DEFINE_SCRIPTFUNC(SetWide, "")
 DEFINE_SCRIPTFUNC(GetTall, "")
 DEFINE_SCRIPTFUNC(SetTall, "")
 DEFINE_SCRIPTFUNC(SetMinimumSize, "")
-//DEFINE_SCRIPTFUNC(GetMinimumSize, "")
+
 DEFINE_SCRIPTFUNC(IsBuildModeEditable, "")
 DEFINE_SCRIPTFUNC(SetBuildModeEditable, "")
 DEFINE_SCRIPTFUNC(IsBuildModeDeletable, "")
@@ -388,13 +351,9 @@ DEFINE_SCRIPTFUNC(SetVisible, "")
 DEFINE_SCRIPTFUNC(IsVisible, "")
 
 DEFINE_SCRIPTFUNC(IsWithin, "")
-//DEFINE_SCRIPTFUNC(LocalToScreen, "")
-//DEFINE_SCRIPTFUNC(ScreenToLocal, "")
-//DEFINE_SCRIPTFUNC(ParentLocalToScreen, "")
 
 DEFINE_SCRIPTFUNC(GetChildCount, "")
 DEFINE_SCRIPTFUNC(FindChildIndexByName, "")
-//DEFINE_SCRIPTFUNC(CallParentFunction, "")
 
 DEFINE_SCRIPTFUNC(SetAutoDelete, "")
 DEFINE_SCRIPTFUNC(IsAutoDeleteSet, "")
@@ -447,6 +406,8 @@ DEFINE_SCRIPTFUNC(SizeToContents, "")
 END_SCRIPTDESC();
 BEGIN_SCRIPTDESC(Button, Label, "")
 DEFINE_SCRIPTFUNC_NAMED(SetCommandConst, "SetCommand", "")
+END_SCRIPTDESC();
+BEGIN_SCRIPTDESC(Frame, EditablePanel, "")
 END_SCRIPTDESC();
 BEGIN_SCRIPTDESC(CSoloNodePanel, EditablePanel, "")
 DEFINE_SCRIPTFUNC(UpdateStateVisuals, "")
@@ -524,6 +485,7 @@ HSCRIPT PanelToScriptHandle(Panel* pPanel)
 	if (dynamic_cast<CExLabel*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<CExLabel*>(pPanel));
 	if (dynamic_cast<Button*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<Button*>(pPanel));
 	if (dynamic_cast<Label*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<Label*>(pPanel));
+	if (dynamic_cast<Frame*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<Frame*>(pPanel));
 	if (dynamic_cast<EditablePanel*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<EditablePanel*>(pPanel));
 	if (dynamic_cast<ImagePanel*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<ImagePanel*>(pPanel));
 	
@@ -558,6 +520,20 @@ void CSoloPanel::AddActionSignalTargetForPanel(HSCRIPT hPanel)
 	{
 		hPanelRoot->AddActionSignalTarget(this);
 	}
+}
+void CSoloPanel::SetActiveCirclePanelPos(HSCRIPT hPanel)
+{
+	auto hPanelRoot = (Panel*)g_pScriptVM->GetInstanceValue(hPanel, GetScriptDescForClass(Panel));
+	if (hPanelRoot)
+	{
+		if (m_pPathsPanel)
+		{
+			m_pPathsPanel->m_bDrawActiveCircle = true;
+			m_pPathsPanel->m_ActiveCirclePosX = hPanelRoot->GetXPos();
+			m_pPathsPanel->m_ActiveCirclePosY = hPanelRoot->GetYPos();
+		}
+	}
+
 }
 
 HSCRIPT CSoloPanel::CreatePanelInternal(HSCRIPT hTable, Panel* hParentTarget)
@@ -689,9 +665,15 @@ HSCRIPT CSoloPanel::CreatePanelInternal(HSCRIPT hTable, Panel* hParentTarget)
 		pPanel = pBasePanel;
 		pDesc = GetScriptDescForClass(Button);
 	}
+	else if (FStrEq(pszPanelType, "Frame"))
+	{
+		Frame* pBasePanel = new Frame(hParent, pszControlName);
+		pPanel = pBasePanel;
+		pDesc = GetScriptDescForClass(Frame);
+	}
 	else if (FStrEq(pszPanelType, "CSoloNodePanel"))
 	{
-		CSoloNodePanel* pBasePanel = new CSoloNodePanel(hParent, "SoloNode");
+		CSoloNodePanel* pBasePanel = new CSoloNodePanel(hParent, "QuestMapNode");
 		pPanel = pBasePanel;
 		pEditPanel = pBasePanel;
 		pDesc = GetScriptDescForClass(CSoloNodePanel);

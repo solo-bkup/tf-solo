@@ -13,6 +13,7 @@ class CTFVideoPanel;
 class CExButton;
 class CSoloObjectiveTooltip;
 class CSoloObjectivePanel;
+class CSoloPathsPanel;
 
 namespace vgui
 {
@@ -33,23 +34,10 @@ public:
 	virtual void ApplySchemeSettings(IScheme* pScheme) OVERRIDE;
 	virtual void ApplySettings(KeyValues* inResourceData) OVERRIDE;
 	virtual void OnCommand(const char* pCommand) OVERRIDE;
-	virtual void PerformLayout() OVERRIDE;
-	virtual void PostChildPaint() OVERRIDE;
 	virtual void SetVisible(bool bVisible) OVERRIDE;
-
 	virtual void FireGameEvent(IGameEvent* event) OVERRIDE;
 
-	MESSAGE_FUNC(QueueTurnInAnims, "QueueTurnInAnims");
-	MESSAGE_FUNC_PARAMS(RegionSelected, "RegionSelected", pParams);
-	MESSAGE_FUNC(RegionBackout, "RegionBackout");
-	MESSAGE_FUNC(DisableMouseBlocker, "DisableMouseBlocker");
-	MESSAGE_FUNC_PARAMS(FireTurnInStateEvent, "FireTurnInStateEvent", pParams);
 	MESSAGE_FUNC_PARAMS(OnPlaySoundEntry, "PlaySoundEntry", pParams);
-
-	virtual void OnCursorEntered();
-	virtual void OnCursorExited();
-
-	const CSoloRegionPanel* GetRegionPanel(uint32 nRegionDefIndex) const;
 
 	CTFTextToolTip* GetTextTooltip() const { return m_pToolTip; }
 
@@ -61,22 +49,22 @@ public:
 	void HideMainTooltip();
 	void PrepareForLevelLoad();
 	void RunAnimationScript(const char* pszScript, bool bCanBeCancelled);
+	void SetActiveCirclePos(int PosX, int PosY);
+	void SetDrawActiveCircle(bool check);
+	void SetDrawGrid(bool check);
+	void SetGridScale(float flScale);
+	int GetScreenWidth();
+	int GetScreenHeight();
 	virtual HSCRIPT CreatePanel(HSCRIPT hTable, const char* hParent);
 	virtual HSCRIPT CreatePanelRoot(HSCRIPT hTable);
 	virtual HSCRIPT CreatePanelInternal(HSCRIPT hTable, Panel* hParent);
 	virtual HSCRIPT FindPanelRoot(const char* hPanel);
 	virtual HSCRIPT FindPanel(HSCRIPT hPanelRoot, const char* hPanel);
 	virtual void AddActionSignalTargetForPanel(HSCRIPT hPanel);
+	virtual void SetActiveCirclePanelPos(HSCRIPT pPanel);
 	virtual void DeleteSubPanel(const char* hPanel);
 
-	void MapStateChangeSequence();
-	//void SetRegion(const CQuestMapRegion* pRegion, bool bZoomIn);
-	void UpdateIntroState();
 	void UpdateControls(bool bIgnoreInvalidLayout = false);
-	void UpdateRegionVisibility();
-	void PlayTransitionScreenEffects();
-	void UpdatePassAdPanel();
-	void UpdateStarsGlobalStatus();
 
 	enum EScreenDisplay
 	{
@@ -101,13 +89,13 @@ private:
 	CItemModelPanel* m_pMouseOverItemPanel;
 	CItemModelPanelToolTip* m_pMouseOverTooltip; // The map needs to own this so things will be sorted correctly
 	CTFTextToolTip* m_pToolTip;
+	CSoloPathsPanel* m_pPathsPanel;
 	vgui::EditablePanel* m_pMainContainer;
 	vgui::EditablePanel* m_pToolTipEmbeddedPanel;
 	vgui::EditablePanel* m_pMapAreaPanel;
-
+	
 	CUtlMap< uint32, CSoloRegionPanel* > m_mapRegions;
 	CUtlVector< ScriptPanelData > m_scriptPanels;
-	//CMsgProtoDefID	m_currentRegion;
 
 	bool m_bTurnInSuccess = false;
 	bool m_bAwaitingItemConfirm = false;

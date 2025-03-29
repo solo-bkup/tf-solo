@@ -69,7 +69,7 @@ CSoloNodePanel::~CSoloNodePanel()
 void CSoloNodePanel::ApplySchemeSettings(IScheme* pScheme)
 {
 	BaseClass::ApplySchemeSettings(pScheme);
-	LoadControlSettings("Resource/UI/solo/SoloNodePanel.res");
+	LoadControlSettings("Resource/UI/econ/QuestMapNodePanel.res");
 }
 
 void CSoloNodePanel::ApplySettings(KeyValues* inResourceData)

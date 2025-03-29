@@ -63,12 +63,14 @@ void GetRegionLinkDotSpotSolo(const EditablePanel* pRegionLink, int& x, int& y)
 	y += YRES(13);
 }
 
-CSoloPathsPanel::CSoloPathsPanel(Panel* pParent, const char* pszPanelname, float flZoomScale)
+CSoloPathsPanel::CSoloPathsPanel(Panel* pParent, const char* pszPanelname)
 	: Panel(pParent, pszPanelname)
 	, m_mapQuestNodes(DefLessFunc(uint32))
 	, m_mapRegionLinkPanels(DefLessFunc(uint32))
-	, m_flZoomScale(Max(0.1f, flZoomScale))
 {
+	m_bDrawGrid = false;
+	m_bDrawActiveCircle = false;
+	m_flZoomScale = 2.0f;
 	m_nWhiteTexture = vgui::surface()->CreateNewTextureID();
 	vgui::surface()->DrawSetTextureFile(m_nWhiteTexture, "vgui/white", true, false);
 }
@@ -131,17 +133,18 @@ void CSoloPathsPanel::Paint()
 	//
 	// Draw the grid behind the nodes
 	//
+	if (m_bDrawGrid)
 	{
 		const float flSpan = (float)GetWide() / tf_quest_map_grid_size * m_flZoomScale;
 		DrawGridSolo(0.f, 0.f, GetWide(), GetTall(), flSpan, 10);
 	}
 
 	// Paint the ambient circle for any active region links
-	if (m_pActiveRegionLinkPanel)
+	if (m_bDrawActiveCircle)
 	{
-		int nX, nY;
-		GetRegionLinkDotSpotSolo(m_pActiveRegionLinkPanel, nX, nY);
-		DrawAmbientActiveCirlceSolo(nX, nY, colorActive);
+		//int nX, nY;
+		//GetRegionLinkDotSpotSolo(m_pActiveRegionLinkPanel, nX, nY);
+		DrawAmbientActiveCirlceSolo(m_ActiveCirclePosX, m_ActiveCirclePosY, colorActive);
 	}
 
 	CUtlVector< uint64 > vecDrawnPaths;
@@ -410,7 +413,7 @@ CSoloRegionPanel::CSoloRegionPanel(Panel* pParent, const char* pszPanelName, CSo
 	m_pQuestMapNodeView->AddActionSignalTarget(this);
 	m_pZoomPanel = new CDraggableScrollingPanel(this, "ZoomPanel");
 	m_pZoomPanel->InstallMouseHandler(this);
-	m_pPathsPanel = new CSoloPathsPanel(m_pZoomPanel, "PathsPanel", 1.0f);//pRegion ? pRegion->GetZoomScale() : 1.f);
+	m_pPathsPanel = new CSoloPathsPanel(m_pZoomPanel, "PathsPanel");//pRegion ? pRegion->GetZoomScale() : 1.f);
 	m_pZoomPanel->AddOrUpdateChild(m_pPathsPanel, true, false, CDraggableScrollingPanel::PIN_CENTER);
 	m_pBGImage = new ImagePanel(m_pZoomPanel, "BGImage");
 	m_pZoomPanel->AddOrUpdateChild(m_pBGImage, true, true, CDraggableScrollingPanel::PIN_CENTER);
@@ -429,7 +432,7 @@ void CSoloRegionPanel::ApplySchemeSettings(IScheme* pScheme)
 	//const CQuestMapRegion* pRegion = GetProtoScriptObjDefManager()->GetTypedDefinition< CQuestMapRegion >(m_msgIDCurrentRegion.defindex());
 	//if (!pRegion)
 	//{
-		LoadControlSettings("Resource/ui/solo/region_overworld.res");
+	LoadControlSettings("Resource/ui/quests/CYOA/regions/region_base.res");
 	//}
 	//else
 	//{

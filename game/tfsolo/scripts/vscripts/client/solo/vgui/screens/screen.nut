@@ -47,6 +47,8 @@ TFSOLO.Screen <- class
 	}
 	function Exit()
 	{
+		SoloPanel.SetDrawGrid(false)
+		SoloPanel.SetDrawActiveCircle(false)
 		SoloPanel.HideMainTooltip()
 		OnExit()
 	}

@@ -53,7 +53,7 @@ class CSoloPathsPanel : public Panel
 {
 public:
 	DECLARE_CLASS_SIMPLE(CSoloPathsPanel, Panel);
-	CSoloPathsPanel(Panel* pParent, const char* pszPanelname, float flZoomScale);
+	CSoloPathsPanel(Panel* pParent, const char* pszPanelname);
 
 	virtual void Paint() OVERRIDE;
 
@@ -66,6 +66,12 @@ public:
 
 	CSoloCircleDrawingHelper& GetCircleDrawer() { return m_circleDrawer; }
 
+	float m_flZoomScale;
+	bool m_bDrawActiveCircle;
+	int m_ActiveCirclePosX;
+	int m_ActiveCirclePosY;
+	bool m_bDrawGrid;
+
 private:
 
 	CSoloCircleDrawingHelper m_circleDrawer;
@@ -73,7 +79,7 @@ private:
 	EditablePanel* m_pActiveRegionLinkPanel = nullptr;
 	CUtlMap< uint32, CSoloNodePanel* > m_mapQuestNodes;
 	int m_nWhiteTexture;
-	float m_flZoomScale;
+
 };
 
 //-----------------------------------------------------------------------------

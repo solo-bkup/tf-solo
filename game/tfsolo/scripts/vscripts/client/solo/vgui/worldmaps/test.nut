@@ -30,7 +30,7 @@ TFSOLO.WorldMaps.TestClass <- class extends TFSOLO.WorldMap
 			fieldName		="Link"
 			xpos			="cs-0.5-50"
 			ypos			="cs-0.5+100"
-			ControlSettings ="Resource/UI/solo/SoloRegionLink.res"
+			ControlSettings ="Resource/UI/quests/cyoa/QuestMapRegionLink.res"
 		}
 		local LinkPanel = SoloPanel.CreatePanelRoot(kvRegionLink)
 		LinkPanel.SetDialogVariable("link_region_name", "Test Region Link")
@@ -43,6 +43,15 @@ TFSOLO.WorldMaps.TestClass <- class extends TFSOLO.WorldMap
 		local nTall = LinkButton.GetTall()
 		LinkButton.SizeToContents()
 		LinkButton.SetTall(nTall)
+		
+		SoloPanel.SetDrawGrid(true)
+		local PosX = Nodes[1].Panel.GetXPos()
+		local PosY = Nodes[1].Panel.GetYPos()
+		local SizeX = Nodes[1].Panel.GetWide()
+		local SizeY = Nodes[1].Panel.GetTall()
+		PosX += SizeX / 2.0
+		PosY += (SizeY / 2.0) - 46
+		SoloPanel.SetActiveCirclePos(PosX, PosY)
 	}
 }
 TFSOLO.WorldMaps.Test <- TFSOLO.WorldMaps.TestClass()

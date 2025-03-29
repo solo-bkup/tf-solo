@@ -25,7 +25,7 @@ void ConfirmSelectSoloNode(bool bConfirmed, void* pContext)
 CSoloObjectivePanel::CSoloObjectivePanel(Panel* pParent, const char* pszPanelname)
 	: BaseClass(pParent, pszPanelname)
 {
-	//m_pItemTrackerPanel = new CQuestProgressTrackerPanel(this, "ItemTrackerPanel", NULL, NULL, "resource/ui/solo/SoloTracker.res");
+	//m_pItemTrackerPanel = new CQuestProgressTrackerPanel(this, "ItemTrackerPanel", NULL, NULL, "resource/ui/quests/CYOA/QuestItemTrackerPanel_CYOA.res");
 }
 
 //-----------------------------------------------------------------------------
@@ -160,7 +160,7 @@ CSoloNodeViewSubPanel::CSoloNodeViewSubPanel(Panel* pParent,
 void CSoloNodeViewSubPanel::ApplySchemeSettings(IScheme* pScheme)
 {
 	BaseClass::ApplySchemeSettings(pScheme);
-	LoadControlSettings("Resource/UI/solo/SoloNodeViewSubPanel.res");
+	LoadControlSettings("Resource/UI/econ/QuestViewSubPanel.res");
 }
 
 void CSoloNodeViewSubPanel::PerformLayout()
