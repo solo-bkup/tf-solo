@@ -49,4 +49,8 @@
 		"count"	"long"
 		"setflag"	"bool" // if false, increment flag by count
 	}
+	"solo_hud_file_changed"
+	{
+		"path"	"string"
+	}
 }

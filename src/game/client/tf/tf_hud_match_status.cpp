@@ -30,7 +30,7 @@
 extern ConVar mp_winlimit;
 extern ConVar mp_tournament_stopwatch;
 
-ConVar tf_use_match_hud( "tf_use_match_hud", "0", FCVAR_ARCHIVE );
+ConVar tf_use_match_hud( "tf_use_match_hud", "1", FCVAR_ARCHIVE );
 
 using namespace vgui;
 
@@ -45,7 +45,8 @@ bool ShouldUseMatchHUD()
 	if ( TFGameRules() && TFGameRules()->IsMannVsMachineMode() )
 		return false;
 
-	return tf_use_match_hud.GetBool();
+	return false;
+	//return tf_use_match_hud.GetBool();
 
 }
 
@@ -472,6 +473,13 @@ void CTFHudMatchStatus::OnThink()
 		bool bDisplayTimer = !( pPlayer && pPlayer->GetObserverMode() == OBS_MODE_FREEZECAM );
 
 		if ( TeamplayRoundBasedRules()->IsInTournamentMode() && TeamplayRoundBasedRules()->IsInWaitingForPlayers() )
+		{
+			bDisplayTimer = false;
+		}
+
+		ConVarRef tf_gamemode_campaign( "tf_gamemode_campaign" );
+		ConVarRef tf_gamemode_solo( "tf_gamemode_solo" );
+		if ( ( tf_gamemode_campaign.IsValid() && tf_gamemode_campaign.GetBool() ) || ( tf_gamemode_solo.IsValid() && tf_gamemode_solo.GetBool() ) )
 		{
 			bDisplayTimer = false;
 		}
