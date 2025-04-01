@@ -7,23 +7,26 @@
 #include "tf_gamerules.h"
 #include "tf_playermodelpanel.h"
 #include "tf_vgui_video.h"
+#include "tf_solo_panel.h"
 
 using namespace vgui;
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
 CTFHUDSoloObjectives::CTFHUDSoloObjectives( Panel *parent, const char *name )
 	: EditablePanel( parent, name )
 {
-	m_pszResFile = "Resource/UI/solo/HudSoloBase.res";
+	ResetResFile();
 	ReinitializeEverything();
 
 	//vgui::ivgui()->AddTickSignal( GetVPanel(), 16 );
 
 	//ListenForGameEvent( "teamplay_round_start" );
 	//ListenForGameEvent( "mainmenu_stabilized" );
-	ListenForGameEvent( "solo_hud_file_changed" );
+	ListenForGameEvent( "server_spawn" );
+	ListenForGameEvent( "solohud_file_changed" );
+	ListenForGameEvent( "solohud_int" );
+	ListenForGameEvent( "solohud_float" );
+	ListenForGameEvent( "solohud_string" );
+	ListenForGameEvent( "solohud_event" );
 
 	if ( g_pScriptVM )
 	{
@@ -31,16 +34,10 @@ CTFHUDSoloObjectives::CTFHUDSoloObjectives( Panel *parent, const char *name )
 	}
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
 CTFHUDSoloObjectives::~CTFHUDSoloObjectives()
 {
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
 bool CTFHUDSoloObjectives::IsVisible( void )
 {
 	if( IsTakingAFreezecamScreenshot() )
@@ -50,9 +47,6 @@ bool CTFHUDSoloObjectives::IsVisible( void )
 }
 
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
 void CTFHUDSoloObjectives::ApplySettings( KeyValues *inResourceData )
 {
 	BaseClass::ApplySettings( inResourceData );
@@ -69,9 +63,6 @@ void CTFHUDSoloObjectives::ReinitializeEverything()
 	}
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
 void CTFHUDSoloObjectives::ApplySchemeSettings( IScheme *pScheme )
 {
 	ReinitializeEverything();
@@ -81,17 +72,11 @@ void CTFHUDSoloObjectives::ApplySchemeSettings( IScheme *pScheme )
 	LoadControlSettings( m_pszResFile );
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
 void CTFHUDSoloObjectives::PerformLayout()
 {
 	BaseClass::PerformLayout();
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
 void CTFHUDSoloObjectives::Reset()
 {
 	if (TFGameRules())
@@ -105,17 +90,11 @@ void CTFHUDSoloObjectives::Reset()
 	}
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-void CTFHUDSoloObjectives::OnTick()
+void CTFHUDSoloObjectives::Think()
 {
-	
+	RunScriptHook("solohud_think", NULL);
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
 void CTFHUDSoloObjectives::PaintBackground()
 {
 	BaseClass::PaintBackground();
@@ -126,25 +105,25 @@ void CTFHUDSoloObjectives::Paint()
 	BaseClass::Paint();
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
 void CTFHUDSoloObjectives::UpdateRobotElements()
 {
 	InvalidateLayout( false, true );
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
 void CTFHUDSoloObjectives::FireGameEvent( IGameEvent * pEvent )
 {
-	const char *pszEventName = pEvent->GetName();
+	const char *pszName = pEvent->GetName();
 
-	if ( FStrEq( pszEventName, "solo_hud_file_changed" ) )
+	if ( FStrEq( pszName, "solohud_file_changed" ) )
 	{
 		const char* pszPath = pEvent->GetString("path");
 		SetResFile( pszPath );
+	}
+	else if ( FStrEq( pszName, "server_spawn" ) )
+	{
+		ReinitializeEverything();
+		ResetResFile();
+		RunScriptHook( "solohud_init", NULL );
 	}
 }
 
@@ -152,13 +131,18 @@ void CTFHUDSoloObjectives::SetResFile(const char* file)
 {
 	if (file[0] == '\0')
 	{
-		m_pszResFile = "Resource/UI/solo/HudSoloBase.res";
+		ResetResFile();
 	}
 	else
 	{
 		m_pszResFile = file;
 	}
 	InvalidateLayout(true, true);
+}
+
+void CTFHUDSoloObjectives::ResetResFile()
+{
+	m_pszResFile = "Resource/UI/solo/HudSoloBase.res";
 }
 
 void CTFHUDSoloObjectives::RunAnimationScript(const char* pszScript, bool bCanBeCancelled)
@@ -175,11 +159,12 @@ int CTFHUDSoloObjectives::GetScreenHeight()
 	return ScreenWidth();
 }
 
-BEGIN_SCRIPTDESC_ROOT(CTFHUDSoloObjectives, SCRIPT_SINGLETON "Used to access the ingame objectives HUD")
+BEGIN_SCRIPTDESC(CTFHUDSoloObjectives, EditablePanel, SCRIPT_SINGLETON "Used to access the ingame objectives HUD")
 
 DEFINE_SCRIPTFUNC(Reset, "")
 DEFINE_SCRIPTFUNC(GetResFile, "")
 DEFINE_SCRIPTFUNC(SetResFile, "")
+DEFINE_SCRIPTFUNC(ResetResFile, "")
 DEFINE_SCRIPTFUNC(CreatePanel, "")
 DEFINE_SCRIPTFUNC(CreatePanelRoot, "")
 DEFINE_SCRIPTFUNC(DeleteSubPanel, "")
@@ -188,6 +173,7 @@ DEFINE_SCRIPTFUNC(RunAnimationScript, "")
 DEFINE_SCRIPTFUNC(FindPanelRoot, "")
 DEFINE_SCRIPTFUNC(FindPanel, "")
 DEFINE_SCRIPTFUNC(AddActionSignalTargetForPanel, "")
+DEFINE_SCRIPTFUNC(ReinitializeEverything, "")
 
 END_SCRIPTDESC();
 
@@ -245,29 +231,6 @@ HSCRIPT CTFHUDSoloObjectives::CreatePanelRoot(HSCRIPT hTable)
 	return CreatePanelInternal(hTable, NULL);
 }
 
-HSCRIPT CTFHUDSoloObjectives::PanelToScriptHandle(Panel* pPanel)
-{
-	// This is lame... but it works.
-	if (dynamic_cast<CExScrollingEditablePanel*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<CExScrollingEditablePanel*>(pPanel));
-	if (dynamic_cast<ScrollBar*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<ScrollBar*>(pPanel));
-	if (dynamic_cast<CExImageButton*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<CExImageButton*>(pPanel));
-	if (dynamic_cast<CTFImagePanel*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<CTFImagePanel*>(pPanel));
-	if (dynamic_cast<CItemModelPanel*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<CItemModelPanel*>(pPanel));
-	if (dynamic_cast<CTFPlayerModelPanel*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<CTFPlayerModelPanel*>(pPanel));
-	if (dynamic_cast<CBaseModelPanel*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<CBaseModelPanel*>(pPanel));
-	if (dynamic_cast<CTFVideoPanel*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<CTFVideoPanel*>(pPanel));
-	if (dynamic_cast<CEconItemDetailsRichText*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<CEconItemDetailsRichText*>(pPanel));
-	if (dynamic_cast<CRichTextWithScrollbarBorders*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<CRichTextWithScrollbarBorders*>(pPanel));
-	if (dynamic_cast<CExRichText*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<CExRichText*>(pPanel));
-	if (dynamic_cast<CExLabel*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<CExLabel*>(pPanel));
-	if (dynamic_cast<Button*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<Button*>(pPanel));
-	if (dynamic_cast<Label*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<Label*>(pPanel));
-	if (dynamic_cast<Frame*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<Frame*>(pPanel));
-	if (dynamic_cast<EditablePanel*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<EditablePanel*>(pPanel));
-	if (dynamic_cast<ImagePanel*>(pPanel) != NULL) return g_pScriptVM->RegisterInstance(dynamic_cast<ImagePanel*>(pPanel));
-
-	return g_pScriptVM->RegisterInstance(pPanel);
-}
 HSCRIPT CTFHUDSoloObjectives::FindPanelRoot(const char* hTarget)
 {
 	Panel* pPanel = FindChildByName(hTarget, true);

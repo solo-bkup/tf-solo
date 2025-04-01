@@ -21,7 +21,7 @@ public:
 	virtual void PerformLayout() OVERRIDE;
 	virtual bool IsVisible( void ) OVERRIDE;
 	virtual void Reset();
-	virtual void OnTick() OVERRIDE;
+	virtual void Think();
 	virtual void PaintBackground() OVERRIDE;
 	virtual void Paint() OVERRIDE;
 
@@ -33,6 +33,7 @@ public:
 
 	const char* GetResFile() { return m_pszResFile; }
 	void SetResFile(const char* file);
+	void ResetResFile();
 
 	void ClearAllScriptPanels();
 	void RunAnimationScript(const char* pszScript, bool bCanBeCancelled);
@@ -43,7 +44,6 @@ public:
 	virtual HSCRIPT CreatePanelInternal(HSCRIPT hTable, Panel* hParent);
 	virtual HSCRIPT FindPanelRoot(const char* hPanel);
 	virtual HSCRIPT FindPanel(HSCRIPT hPanelRoot, const char* hPanel);
-	virtual HSCRIPT PanelToScriptHandle(Panel* pPanel);
 	virtual void AddActionSignalTargetForPanel(HSCRIPT hPanel);
 	virtual void DeleteSubPanel(const char* hPanel);
 

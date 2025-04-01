@@ -15794,7 +15794,7 @@ void CTFGameRules::SetSoloObjectivesResFile(const char* path)
 	V_strncpy( m_pszSoloObjectivesResFile.GetForModify(), path, MAX_PATH );
 
 	// Tell connected clients to reload
-	IGameEvent* pEvent = gameeventmanager->CreateEvent( "solo_hud_file_changed" );
+	IGameEvent* pEvent = gameeventmanager->CreateEvent( "solohud_file_changed" );
 	if ( pEvent )
 	{
 		pEvent->SetString( "path", path );
