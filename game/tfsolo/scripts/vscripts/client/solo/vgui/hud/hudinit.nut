@@ -1,34 +1,30 @@
 TFSOLO.Hud <- {}
 TFSOLO.Hud.IsActive <- 0
+TFSOLO.Hud.IsHosting <- 0
 TFSOLO.Hud.ActiveFile <- ""
+TFSOLO.HudScreens <- {}
+TFSOLO.HudScreens.Active <- null
 TFSOLO.Hud.IsSetup <- function()
 {
 	return ( (TFSOLO.Hud.IsActive != 0) || ("SoloHUD" in getroottable()) )
 }
 
-TFSOLO.Hud.OnThink <- function()
-{
-	
-}
-
-TFSOLO.Hud.OnEvent <- function(key, value)
-{
-	
-}
+IncludeScript("client/solo/vgui/hud/hudscreen.nut")
 
 TFSOLO.Hud.EventTag <- UniqueString()
 getroottable()[TFSOLO.Hud.EventTag] <- {
 	OnScriptHook_solohud_init = function(params)
 	{
-		TFSOLO.Hud.IsActive = 1
-		TFSOLO.Hud.ActiveFile <- SoloHUD.GetResFile()
+		TFSOLO.Hud.IsHosting = 1
 	}
 	
 	OnScriptHook_LevelShutdownPostEntity = function(params)
 	{
 		// Clean up panel on map exit
 		if (!TFSOLO.Hud.IsSetup()) return;
+		TFSOLO.HudScreens.Active = null
 		TFSOLO.Hud.IsActive = 0
+		TFSOLO.Hud.IsHosting = 0
 		SoloHUD.ResetResFile()
 		SoloHUD.ReinitializeEverything()
 	}
@@ -36,7 +32,12 @@ getroottable()[TFSOLO.Hud.EventTag] <- {
 	OnGameEvent_solohud_file_changed = function(params)
 	{
 		if (!TFSOLO.Hud.IsSetup()) return;
-		TFSOLO.Hud.ActiveFile <- SoloHUD.GetResFile()
+		TFSOLO.Hud.ActiveFile <- SoloHUD.GetResFile().tolower()
+		TFSOLO.HudScreens.Active = null
+		if (TFSOLO.Hud.ActiveFile in TFSOLO.HudScreens)
+		{
+			TFSOLO.HudScreens[TFSOLO.Hud.ActiveFile].Enter()
+		}
 	}
 	
 	OnGameEvent_solohud_int = function(params)
@@ -60,12 +61,36 @@ getroottable()[TFSOLO.Hud.EventTag] <- {
 	OnGameEvent_solohud_event = function(params)
 	{
 		if (!TFSOLO.Hud.IsSetup()) return;
-		TFSOLO.Hud.OnEvent(params.key, params.value)
+		if (TFSOLO.HudScreens.Active != null)
+		{
+			TFSOLO.HudScreens.Active.OnEvent(params.key, params.value)
+		}
 	}
 	
-	OnGameEvent_solohud_think = function(params)
+	OnScriptHook_solohud_think = function(params)
 	{
-		TFSOLO.Hud.OnThink()
+		if (TFSOLO.HudScreens.Active != null)
+		{
+			TFSOLO.HudScreens.Active.OnThink()
+		}
+	}
+	
+	OnGameEvent_player_spawn = function(params)
+	{
+		if (TFSOLO.Hud.IsActive == 0 && params.team > 1)
+		{
+			if (UserIsClient(params.userid))
+			{
+				SoloHUD.SyncResFile()
+				TFSOLO.HudScreens.Active = null
+				TFSOLO.Hud.IsActive = 1
+				TFSOLO.Hud.ActiveFile <- SoloHUD.GetResFile().tolower()
+				if (TFSOLO.Hud.ActiveFile in TFSOLO.HudScreens)
+				{
+					TFSOLO.HudScreens[TFSOLO.Hud.ActiveFile].Enter()
+				}
+			}
+		}
 	}
 }
 TFSOLO.Hud.EventTable <- getroottable()[TFSOLO.Hud.EventTag]

@@ -79,15 +79,7 @@ void CTFHUDSoloObjectives::PerformLayout()
 
 void CTFHUDSoloObjectives::Reset()
 {
-	if (TFGameRules())
-	{
-		const char* pszRulesResFile = TFGameRules()->GetSoloObjectivesResFile();
-		if (pszRulesResFile && pszRulesResFile[0])
-		{
-			// TODO: networking the path to joining players
-			//m_pszResFile = pszRulesResFile;
-		}
-	}
+	
 }
 
 void CTFHUDSoloObjectives::Think()
@@ -121,6 +113,10 @@ void CTFHUDSoloObjectives::FireGameEvent( IGameEvent * pEvent )
 	}
 	else if ( FStrEq( pszName, "server_spawn" ) )
 	{
+		if ( g_pScriptVM )
+		{
+			g_pScriptVM->RegisterInstance( this, "SoloHUD" );
+		}
 		ReinitializeEverything();
 		ResetResFile();
 		RunScriptHook( "solohud_init", NULL );
@@ -145,6 +141,18 @@ void CTFHUDSoloObjectives::ResetResFile()
 	m_pszResFile = "Resource/UI/solo/HudSoloBase.res";
 }
 
+void CTFHUDSoloObjectives::SyncResFile()
+{
+	if ( TFGameRules() )
+	{
+		const char* pszRulesResFile = TFGameRules()->GetSoloObjectivesResFile();
+		if (pszRulesResFile && pszRulesResFile[0])
+		{
+			SetResFile( pszRulesResFile );
+		}
+	}
+}
+
 void CTFHUDSoloObjectives::RunAnimationScript(const char* pszScript, bool bCanBeCancelled)
 {
 	g_pClientMode->GetViewportAnimationController()->RunScript(pszScript, this, bCanBeCancelled);
@@ -165,6 +173,7 @@ DEFINE_SCRIPTFUNC(Reset, "")
 DEFINE_SCRIPTFUNC(GetResFile, "")
 DEFINE_SCRIPTFUNC(SetResFile, "")
 DEFINE_SCRIPTFUNC(ResetResFile, "")
+DEFINE_SCRIPTFUNC(SyncResFile, "")
 DEFINE_SCRIPTFUNC(CreatePanel, "")
 DEFINE_SCRIPTFUNC(CreatePanelRoot, "")
 DEFINE_SCRIPTFUNC(DeleteSubPanel, "")

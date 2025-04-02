@@ -34,6 +34,7 @@ public:
 	const char* GetResFile() { return m_pszResFile; }
 	void SetResFile(const char* file);
 	void ResetResFile();
+	void SyncResFile();
 
 	void ClearAllScriptPanels();
 	void RunAnimationScript(const char* pszScript, bool bCanBeCancelled);
