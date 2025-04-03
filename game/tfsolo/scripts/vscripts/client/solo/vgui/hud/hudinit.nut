@@ -21,18 +21,26 @@ getroottable()[TFSOLO.Hud.EventTag] <- {
 	OnScriptHook_LevelShutdownPostEntity = function(params)
 	{
 		// Clean up panel on map exit
-		if (!TFSOLO.Hud.IsSetup()) return;
+		if (TFSOLO.HudScreens.Active != null)
+		{
+			TFSOLO.HudScreens.Active.Exit()
+		}
 		TFSOLO.HudScreens.Active = null
 		TFSOLO.Hud.IsActive = 0
 		TFSOLO.Hud.IsHosting = 0
+		if (!TFSOLO.Hud.IsSetup()) return;
 		SoloHUD.ResetResFile()
 		SoloHUD.ReinitializeEverything()
 	}
 	
-	OnGameEvent_solohud_file_changed = function(params)
+	OnScriptHook_solohud_file_changed = function(params)
 	{
 		if (!TFSOLO.Hud.IsSetup()) return;
 		TFSOLO.Hud.ActiveFile <- SoloHUD.GetResFile().tolower()
+		if (TFSOLO.HudScreens.Active != null)
+		{
+			TFSOLO.HudScreens.Active.Exit()
+		}
 		TFSOLO.HudScreens.Active = null
 		if (TFSOLO.Hud.ActiveFile in TFSOLO.HudScreens)
 		{
@@ -82,6 +90,10 @@ getroottable()[TFSOLO.Hud.EventTag] <- {
 			if (UserIsClient(params.userid))
 			{
 				SoloHUD.SyncResFile()
+				if (TFSOLO.HudScreens.Active != null)
+				{
+					TFSOLO.HudScreens.Active.Exit()
+				}
 				TFSOLO.HudScreens.Active = null
 				TFSOLO.Hud.IsActive = 1
 				TFSOLO.Hud.ActiveFile <- SoloHUD.GetResFile().tolower()

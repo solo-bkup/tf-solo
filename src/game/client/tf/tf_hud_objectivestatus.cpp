@@ -93,12 +93,12 @@ void CTFHudObjectiveStatus::ApplySchemeSettings( IScheme *pScheme )
 		m_pRobotDestructionPanel = NULL;
 	}
 	m_pRobotDestructionPanel = new CTFHUDRobotDestruction( this, "ObjectiveStatusRobotDestruction" );
-	if (m_pSoloObjectivesPanel)
+	if ( m_pSoloObjectivesPanel )
 	{
 		m_pSoloObjectivesPanel->MarkForDeletion();
 		m_pSoloObjectivesPanel = NULL;
 	}
-	m_pSoloObjectivesPanel = new CTFHUDSoloObjectives(this, "ObjectiveStatusSolo");
+	m_pSoloObjectivesPanel = new CTFHUDSoloObjectives( this, "ObjectiveStatusSolo" );
 
 	// load control settings...
 	LoadControlSettings( "resource/UI/HudObjectiveStatus.res" );
@@ -205,10 +205,8 @@ void CTFHudObjectiveStatus::SetVisiblePanels( void )
 
 	if ( m_pSoloObjectivesPanel )
 	{
-		ConVarRef tf_gamemode_campaign( "tf_gamemode_campaign" );
-		ConVarRef tf_gamemode_solo( "tf_gamemode_solo" );
-		m_pSoloObjectivesPanel->SetVisible( tf_gamemode_campaign.GetBool() || tf_gamemode_solo.GetBool() );
-		m_pSoloObjectivesPanel->SetEnabled( tf_gamemode_campaign.GetBool() || tf_gamemode_solo.GetBool() );
+		m_pSoloObjectivesPanel->SetVisible( true );
+		m_pSoloObjectivesPanel->SetEnabled( true );
 	}
 
 	//=============================================================================

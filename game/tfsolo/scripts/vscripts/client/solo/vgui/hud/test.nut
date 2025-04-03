@@ -1,4 +1,4 @@
-TFSOLO.HudScreens.Test <- class extends TFSOLO.WorldMap
+TFSOLO.HudScreens.Test <- class extends TFSOLO.HudScreen
 {
 	Name = "TestHUD"
 	constructor() {}

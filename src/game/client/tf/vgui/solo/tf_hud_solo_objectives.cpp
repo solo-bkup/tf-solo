@@ -8,6 +8,7 @@
 #include "tf_playermodelpanel.h"
 #include "tf_vgui_video.h"
 #include "tf_solo_panel.h"
+#include "tf_hud_match_status.h"
 
 using namespace vgui;
 
@@ -19,8 +20,6 @@ CTFHUDSoloObjectives::CTFHUDSoloObjectives( Panel *parent, const char *name )
 
 	//vgui::ivgui()->AddTickSignal( GetVPanel(), 16 );
 
-	//ListenForGameEvent( "teamplay_round_start" );
-	//ListenForGameEvent( "mainmenu_stabilized" );
 	ListenForGameEvent( "server_spawn" );
 	ListenForGameEvent( "solohud_file_changed" );
 	ListenForGameEvent( "solohud_int" );
@@ -41,6 +40,10 @@ CTFHUDSoloObjectives::~CTFHUDSoloObjectives()
 bool CTFHUDSoloObjectives::IsVisible( void )
 {
 	if( IsTakingAFreezecamScreenshot() )
+		return false;
+
+	bool bShouldDraw = ( !gHUD.IsHidden( HIDEHUD_TARGET_ID ) );
+	if ( !bShouldDraw )
 		return false;
 
 	return BaseClass::IsVisible();
@@ -97,11 +100,6 @@ void CTFHUDSoloObjectives::Paint()
 	BaseClass::Paint();
 }
 
-void CTFHUDSoloObjectives::UpdateRobotElements()
-{
-	InvalidateLayout( false, true );
-}
-
 void CTFHUDSoloObjectives::FireGameEvent( IGameEvent * pEvent )
 {
 	const char *pszName = pEvent->GetName();
@@ -110,6 +108,7 @@ void CTFHUDSoloObjectives::FireGameEvent( IGameEvent * pEvent )
 	{
 		const char* pszPath = pEvent->GetString("path");
 		SetResFile( pszPath );
+		RunScriptHook("solohud_file_changed", NULL);
 	}
 	else if ( FStrEq( pszName, "server_spawn" ) )
 	{
@@ -139,6 +138,7 @@ void CTFHUDSoloObjectives::SetResFile(const char* file)
 void CTFHUDSoloObjectives::ResetResFile()
 {
 	m_pszResFile = "Resource/UI/solo/HudSoloBase.res";
+	InvalidateLayout(true, true);
 }
 
 void CTFHUDSoloObjectives::SyncResFile()
@@ -183,6 +183,8 @@ DEFINE_SCRIPTFUNC(FindPanelRoot, "")
 DEFINE_SCRIPTFUNC(FindPanel, "")
 DEFINE_SCRIPTFUNC(AddActionSignalTargetForPanel, "")
 DEFINE_SCRIPTFUNC(ReinitializeEverything, "")
+DEFINE_SCRIPTFUNC(GetMatchStatusPanel, "")
+DEFINE_SCRIPTFUNC(GetKothTimersPanel, "")
 
 END_SCRIPTDESC();
 
@@ -438,4 +440,16 @@ HSCRIPT CTFHUDSoloObjectives::CreatePanelInternal(HSCRIPT hTable, Panel* hParent
 	m_scriptPanels.AddToTail(PanelData);
 
 	return m_hScriptInstance;
+}
+
+HSCRIPT CTFHUDSoloObjectives::GetMatchStatusPanel()
+{
+	CTFHudMatchStatus* pStatus = GET_HUDELEMENT(CTFHudMatchStatus);
+	return PanelToScriptHandle(pStatus);
+}
+
+HSCRIPT CTFHUDSoloObjectives::GetKothTimersPanel()
+{
+	CTFHudKothTimeStatus* pKothHUD = GET_HUDELEMENT(CTFHudKothTimeStatus);
+	return PanelToScriptHandle(pKothHUD);
 }

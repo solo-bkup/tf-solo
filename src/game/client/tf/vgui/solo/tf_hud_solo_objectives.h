@@ -28,8 +28,6 @@ public:
 	virtual void FireGameEvent( IGameEvent *pEvent ) OVERRIDE;
 
 	void ReinitializeEverything();
-	
-	void UpdateRobotElements();
 
 	const char* GetResFile() { return m_pszResFile; }
 	void SetResFile(const char* file);
@@ -47,6 +45,9 @@ public:
 	virtual HSCRIPT FindPanel(HSCRIPT hPanelRoot, const char* hPanel);
 	virtual void AddActionSignalTargetForPanel(HSCRIPT hPanel);
 	virtual void DeleteSubPanel(const char* hPanel);
+
+	virtual HSCRIPT GetMatchStatusPanel();
+	virtual HSCRIPT GetKothTimersPanel();
 
 	CUtlString m_pszResFile;
 	bool m_bHideRealTimer;

@@ -477,13 +477,6 @@ void CTFHudMatchStatus::OnThink()
 			bDisplayTimer = false;
 		}
 
-		ConVarRef tf_gamemode_campaign( "tf_gamemode_campaign" );
-		ConVarRef tf_gamemode_solo( "tf_gamemode_solo" );
-		if ( ( tf_gamemode_campaign.IsValid() && tf_gamemode_campaign.GetBool() ) || ( tf_gamemode_solo.IsValid() && tf_gamemode_solo.GetBool() ) )
-		{
-			bDisplayTimer = false;
-		}
-
 		if ( bDisplayTimer )
 		{
 			// is the time panel still pointing at an active timer?

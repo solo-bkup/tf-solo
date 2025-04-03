@@ -3,9 +3,9 @@ TFSOLO.HudScreen <- class
 	Name = "BaseHudScreen"
 	
 	constructor()
-    { 
+	{
 
-    }
+	}
 	
 	function Enter()
 	{
@@ -13,6 +13,14 @@ TFSOLO.HudScreen <- class
 		OnEnter()
 	}
 	function OnEnter()
+	{
+		
+	}
+	function Exit()
+	{
+		OnExit()
+	}
+	function OnExit()
 	{
 		
 	}
@@ -28,3 +36,4 @@ TFSOLO.HudScreen <- class
 }
 
 IncludeScript("client/solo/vgui/hud/test.nut")
+IncludeScript("client/solo/vgui/hud/mission_basic.nut")
